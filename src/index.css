@@ -1,0 +1,153 @@
+@import "tailwindcss";
+
+/* class-based dark mode (toggled on <html>) */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  /* display alias kept for layout classes — renders Inter (no serif brand font) */
+  --font-display: "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  /* Deep, trustworthy navy */
+  --color-navy-50: #f4f6fb;
+  --color-navy-100: #e8edf6;
+  --color-navy-200: #cdd8ea;
+  --color-navy-300: #a6bad7;
+  --color-navy-400: #7894bf;
+  --color-navy-500: #5675a8;
+  --color-navy-600: #425d8c;
+  --color-navy-700: #364b72;
+  --color-navy-800: #2f405f;
+  --color-navy-900: #24314a;
+  --color-navy-950: #161f33;
+
+  /* Soft sage green */
+  --color-sage-50: #f2f8f3;
+  --color-sage-100: #e0efe3;
+  --color-sage-200: #c2dfc9;
+  --color-sage-300: #97c6a4;
+  --color-sage-400: #69a87b;
+  --color-sage-500: #478b5b;
+  --color-sage-600: #357047;
+  --color-sage-700: #2b593a;
+  --color-sage-800: #254730;
+  --color-sage-900: #1f3b29;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  color-scheme: light;
+  scroll-behavior: smooth;
+}
+
+body {
+  @apply bg-[#f7f8fb] text-slate-700 font-sans text-sm;
+}
+
+html.dark {
+  color-scheme: dark;
+}
+html.dark body {
+  @apply bg-[#0c111d] text-slate-300;
+}
+
+::selection {
+  background: #cdd8ea;
+}
+
+/* Clear, consistent keyboard-focus ring for accessibility.
+   Pointer clicks don't trigger :focus-visible, so this only shows
+   for keyboard users and never fights component-level focus styles. */
+:focus-visible {
+  outline: 2px solid var(--color-navy-500);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+/* Soft custom scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #d3d9e3 transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: #d3d9e3;
+  border-radius: 8px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@keyframes slidein {
+  from { transform: translateY(6px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+.animate-slidein {
+  animation: slidein 0.18s ease-out;
+}
+
+@keyframes fadein {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.animate-fadein {
+  animation: fadein 0.15s ease-out;
+}
+
+/* Modal panel: gentle scale + rise from center for spatial context */
+@keyframes modalin {
+  from { transform: translateY(8px) scale(0.97); opacity: 0; }
+  to { transform: translateY(0) scale(1); opacity: 1; }
+}
+.animate-modalin {
+  animation: modalin 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes softpulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(54, 75, 114, 0.28); }
+  50% { box-shadow: 0 0 0 5px rgba(54, 75, 114, 0); }
+}
+.animate-softpulse {
+  animation: softpulse 2.4s ease-in-out infinite;
+}
+
+/* time-of-day greeting sky */
+@keyframes sunrise {
+  from { transform: translateY(34px) scale(0.85); opacity: 0; }
+  to { transform: translateY(0) scale(1); opacity: 1; }
+}
+.animate-sunrise {
+  animation: sunrise 1.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes floaty {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+.animate-floaty {
+  animation: floaty 7s ease-in-out infinite;
+}
+
+@keyframes twinkle {
+  0%, 100% { opacity: 0.2; }
+  50% { opacity: 0.9; }
+}
+.animate-twinkle {
+  animation: twinkle 3.2s ease-in-out infinite;
+}
+
+/* Respect users who prefer reduced motion (Quick Ref §1 / §7) */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

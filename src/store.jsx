@@ -1,0 +1,366 @@
+import { createContext, useContext, useMemo, useState, useCallback, useRef, useEffect } from 'react'
+import {
+  SEED_BORROWERS,
+  SEED_TASKS,
+  SEED_CONNECTIONS,
+  STATUSES,
+  NEXT_ACTION_LABEL,
+  TASK_STATUSES,
+  officerById,
+  docsFor,
+  d,
+  daysUntil,
+  isOverdue,
+  isStuck,
+  isClosedOut,
+} from './data.js'
+
+const Ctx = createContext(null)
+export const useApp = () => useContext(Ctx)
+
+const DEFAULT_CRM = {
+  q: '',
+  status: 'All',
+  officer: 'All',
+  loanType: 'All',
+  overdue: false,
+  missing: false,
+  stuck: false,
+  apply: false,
+}
+
+export function AppProvider({ children }) {
+  const [view, setView] = useState({ page: 'dashboard' })
+  const [borrowers, setBorrowers] = useState(SEED_BORROWERS)
+  const [tasks, setTasks] = useState(SEED_TASKS)
+  const [toasts, setToasts] = useState([])
+  const [crm, setCrmState] = useState(DEFAULT_CRM)
+  const [connections, setConnections] = useState(SEED_CONNECTIONS)
+  const [seat, setSeatState] = useState('julene') // 'team' or an officer id; defaults to the signed-in officer
+  const [notifPrefs, setNotifPrefs] = useState({
+    overdue: true,
+    tasks: true,
+    applyLeads: true,
+    rateLocks: true,
+    digest: true,
+    weekly: false,
+  })
+  const [signedIn, setSignedIn] = useState(false)
+  const [theme, setTheme] = useState('light')
+  const idSeq = useRef(100)
+
+  const setNotifPref = useCallback((key, val) => setNotifPrefs((p) => ({ ...p, [key]: val })), [])
+
+  /* ---------- auth (demo sign-in) & theme ---------- */
+  const signIn = useCallback((officerId) => {
+    if (officerId) setSeatState(officerId)
+    setSignedIn(true)
+  }, [])
+  const signOut = useCallback(() => setSignedIn(false), [])
+  const toggleTheme = useCallback(() => setTheme((t) => (t === 'light' ? 'dark' : 'light')), [])
+
+  useEffect(() => {
+    const root = document.documentElement
+    if (theme === 'dark') root.classList.add('dark')
+    else root.classList.remove('dark')
+  }, [theme])
+
+  const currentOfficer = seat === 'team' ? null : officerById(seat)
+
+  const setSeat = useCallback((id) => {
+    setSeatState(id)
+    window.scrollTo({ top: 0 })
+  }, [])
+
+  /* ---------- toasts ---------- */
+  const toast = useCallback((text, emoji = '✓') => {
+    const id = ++idSeq.current
+    setToasts((t) => [...t, { id, text, emoji }])
+    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 3600)
+  }, [])
+
+  /* ---------- navigation ---------- */
+  const go = useCallback((page, extra = {}) => {
+    setView({ page, ...extra })
+    window.scrollTo({ top: 0 })
+  }, [])
+
+  const openLoan = useCallback((id, tab = 'Overview') => go('loan', { id, tab }), [go])
+
+  /* navigate to CRM with preset filters */
+  const goBorrowers = useCallback(
+    (preset = {}) => {
+      setCrmState({ ...DEFAULT_CRM, ...preset })
+      go('borrowers')
+    },
+    [go],
+  )
+
+  const setCrm = useCallback((patch) => setCrmState((c) => ({ ...c, ...patch })), [])
+
+  /* ---------- borrower mutations ---------- */
+  const patchBorrower = useCallback((id, fn) => {
+    setBorrowers((list) => list.map((b) => (b.id === id ? fn(b) : b)))
+  }, [])
+
+  const logEvent = (b, type, text) => ({
+    ...b,
+    timeline: [...b.timeline, { date: d(0), type, text }],
+  })
+
+  const advanceStatus = useCallback(
+    (id) => {
+      setBorrowers((list) =>
+        list.map((b) => {
+          if (b.id !== id) return b
+          const i = STATUSES.indexOf(b.status)
+          const next = STATUSES[i + 1]
+          if (!next || isClosedOut(b)) return b
+
+          let nb = {
+            ...b,
+            status: next,
+            stageEnteredAt: d(0),
+            lastContact: d(0),
+            nextFollowUp: next === 'Closed' ? null : d(3),
+          }
+          // "Request documents" action also fires the doc request
+          if (next === 'Documents Needed') {
+            nb.docs = nb.docs.map((x) => (x.status === 'Needed' ? { ...x, status: 'Requested' } : x))
+            nb = logEvent(nb, 'doc', 'Document request sent to borrower')
+          }
+          nb = logEvent(nb, 'status', next === 'Closed' ? 'Loan closed 🎉' : `Status moved: ${b.status} → ${next}`)
+          toast(
+            next === 'Closed'
+              ? `${b.name} — loan closed! 🎉`
+              : `${b.name} → ${next}`,
+            next === 'Closed' ? '🎉' : '⚡',
+          )
+          return nb
+        }),
+      )
+    },
+    [toast],
+  )
+
+  const setDocStatus = useCallback(
+    (bid, docName, status) => {
+      patchBorrower(bid, (b) =>
+        logEvent(
+          {
+            ...b,
+            docs: b.docs.map((x) => (x.name === docName ? { ...x, status } : x)),
+          },
+          'doc',
+          `${docName} marked ${status}`,
+        ),
+      )
+    },
+    [patchBorrower],
+  )
+
+  const requestDocs = useCallback(
+    (bid) => {
+      patchBorrower(bid, (b) => {
+        const n = b.docs.filter((x) => x.status === 'Needed' || x.status === 'Rejected').length
+        if (!n) return b
+        return logEvent(
+          {
+            ...b,
+            docs: b.docs.map((x) =>
+              x.status === 'Needed' || x.status === 'Rejected' ? { ...x, status: 'Requested' } : x,
+            ),
+          },
+          'doc',
+          `Document request sent (${n} item${n > 1 ? 's' : ''})`,
+        )
+      })
+      toast('Document request sent to borrower', '📨')
+    },
+    [patchBorrower, toast],
+  )
+
+  const addNote = useCallback(
+    (bid, text, author = 'MS Lending Team') => {
+      patchBorrower(bid, (b) =>
+        logEvent(
+          {
+            ...b,
+            notes: [{ id: 'n' + ++idSeq.current, author, date: d(0), text }, ...b.notes],
+          },
+          'note',
+          `Note added — “${text.length > 48 ? text.slice(0, 48) + '…' : text}”`,
+        ),
+      )
+      toast('Note saved', '📝')
+    },
+    [patchBorrower, toast],
+  )
+
+  const setFollowUp = useCallback(
+    (bid, iso) => {
+      patchBorrower(bid, (b) => ({ ...b, nextFollowUp: iso }))
+      toast('Follow-up scheduled', '📅')
+    },
+    [patchBorrower, toast],
+  )
+
+  const addBorrower = useCallback(
+    (form, { navigate = true } = {}) => {
+      const id = 'b' + ++idSeq.current
+      const nb = {
+        coBorrower: null,
+        state: 'MS',
+        term: 30,
+        rate: 6.5,
+        creditScore: null,
+        propertyValue: null,
+        propertyAddress: `${form.city}, MS`,
+        employer: '—',
+        estClosing: null,
+        lastContact: null,
+        purpose: form.purpose ?? 'Purchase',
+        ...form,
+        id,
+        amount: Number(form.amount) || 0,
+        status: 'New Lead',
+        createdAt: d(0),
+        stageEnteredAt: d(0),
+        nextFollowUp: d(1),
+        docs: docsFor(form.purpose ?? 'Purchase'),
+        notes: [],
+        timeline: [
+          {
+            date: d(0),
+            type: form.viaApply ? 'apply' : 'created',
+            text: form.viaApply
+              ? `Captured via apply link — ${form.source}`
+              : `Lead created from ${form.source}`,
+          },
+        ],
+      }
+      setBorrowers((list) => [nb, ...list])
+      toast(`${form.name} added as a new lead`, '✓')
+      if (navigate) openLoan(id)
+      return id
+    },
+    [openLoan, toast],
+  )
+
+  /* ---------- tasks ---------- */
+  const moveTask = useCallback((id, dir) => {
+    setTasks((list) =>
+      list.map((t) => {
+        if (t.id !== id) return t
+        const i = TASK_STATUSES.indexOf(t.status)
+        const next = TASK_STATUSES[Math.min(Math.max(i + dir, 0), TASK_STATUSES.length - 1)]
+        return { ...t, status: next }
+      }),
+    )
+  }, [])
+
+  const completeTask = useCallback(
+    (id) => {
+      setTasks((list) => list.map((t) => (t.id === id ? { ...t, status: 'Complete' } : t)))
+      toast('Task completed', '✅')
+    },
+    [toast],
+  )
+
+  const addTask = useCallback(
+    (form) => {
+      setTasks((list) => [{ id: 't' + ++idSeq.current, status: 'To Do', ...form }, ...list])
+      toast('Task added', '➕')
+    },
+    [toast],
+  )
+
+  /* ---------- borrower communication ---------- */
+  const logCommunication = useCallback(
+    (bid, channel, text, toastMsg) => {
+      patchBorrower(bid, (b) => logEvent({ ...b, lastContact: d(0) }, channel, text))
+      if (toastMsg) toast(toastMsg, '📤')
+    },
+    [patchBorrower, toast],
+  )
+
+  /* ---------- integrations ---------- */
+  const connectIntegration = useCallback(
+    (id, account, name) => {
+      setConnections((c) => ({ ...c, [id]: { account, since: d(0) } }))
+      toast(`${name ?? 'Integration'} connected`, '🔗')
+    },
+    [toast],
+  )
+
+  const disconnectIntegration = useCallback(
+    (id, name) => {
+      setConnections((c) => {
+        const next = { ...c }
+        delete next[id]
+        return next
+      })
+      toast(`${name ?? 'Integration'} disconnected`, '✓')
+    },
+    [toast],
+  )
+
+  /* ---------- dashboard metrics (scoped to the active seat) ---------- */
+  const metrics = useMemo(() => {
+    const mine = seat === 'team' ? borrowers : borrowers.filter((b) => b.officerId === seat)
+    const myTasks = seat === 'team' ? tasks : tasks.filter((t) => t.officerId === seat)
+    const active = mine.filter((b) => !isClosedOut(b))
+    const newThisWeek = mine.filter((b) => daysUntil(b.createdAt) >= -6)
+    const waitingDocs = active.filter((b) => b.status === 'Documents Needed')
+    const underwriting = active.filter((b) => b.status === 'Underwriting')
+    const readyToClose = active.filter((b) => b.status === 'Clear to Close')
+    const overdue = active.filter(isOverdue)
+    const stuck = active.filter(isStuck)
+    const todays = myTasks.filter((t) => t.status !== 'Complete' && daysUntil(t.due) <= 0)
+    const activity = mine
+      .flatMap((b) => b.timeline.map((e) => ({ ...e, borrower: b.name, borrowerId: b.id })))
+      .sort((a, z) => (a.date < z.date ? 1 : -1))
+      .slice(0, 8)
+    return { active, newThisWeek, waitingDocs, underwriting, readyToClose, overdue, stuck, todays, activity }
+  }, [borrowers, tasks, seat])
+
+  const value = {
+    view,
+    go,
+    openLoan,
+    goBorrowers,
+    crm,
+    setCrm,
+    borrowers,
+    tasks,
+    toasts,
+    toast,
+    metrics,
+    advanceStatus,
+    setDocStatus,
+    requestDocs,
+    addNote,
+    setFollowUp,
+    addBorrower,
+    moveTask,
+    completeTask,
+    addTask,
+    logCommunication,
+    connections,
+    connectIntegration,
+    disconnectIntegration,
+    seat,
+    setSeat,
+    currentOfficer,
+    notifPrefs,
+    setNotifPref,
+    signedIn,
+    signIn,
+    signOut,
+    theme,
+    toggleTheme,
+    nextActionLabel: (b) => NEXT_ACTION_LABEL[b.status],
+  }
+
+  return <Ctx.Provider value={value}>{children}</Ctx.Provider>
+}
