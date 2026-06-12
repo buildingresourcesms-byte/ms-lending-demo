@@ -48,10 +48,10 @@ const MS_CITIES = ['Brandon', 'Flowood', 'Jackson', 'Madison', 'Pearl', 'Ridgela
 
 const NAV_MAIN = [
   { page: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { page: 'calendar', label: 'Calendar', icon: CalendarDays },
   { page: 'borrowers', label: 'Borrowers', icon: Users },
   { page: 'inbox', label: 'Inbox', icon: InboxIcon },
   { page: 'tasks', label: 'Tasks', icon: ListChecks },
-  { page: 'calendar', label: 'Calendar', icon: CalendarDays },
   { page: 'reports', label: 'Reports', icon: BarChart3 },
 ]
 const NAV_CLIENT = [
@@ -413,7 +413,7 @@ function ThemeToggle() {
   return (
     <button
       onClick={toggleTheme}
-      className="rounded-lg p-2 text-slate-500 transition-colors hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/10"
+      className="rounded-lg p-2 text-navy-200 transition-colors hover:bg-white/10 hover:text-white"
       aria-label={dark ? 'Switch to light mode' : 'Switch to dark mode'}
       title={dark ? 'Light mode' : 'Dark mode'}
     >
@@ -602,12 +602,12 @@ function NotificationBell() {
     <div className="relative">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="relative rounded-lg p-2 text-slate-500 transition-colors hover:bg-slate-100"
+        className="relative rounded-lg p-2 text-navy-200 transition-colors hover:bg-white/10 hover:text-white"
         aria-label={`Notifications${count ? ` (${count})` : ''}`}
       >
         <Bell className="h-4 w-4" strokeWidth={1.75} />
         {count > 0 && (
-          <span className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-rose-500 px-1 text-[9px] font-bold text-white ring-2 ring-white tabular-nums">
+          <span className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-rose-500 px-1 text-[9px] font-bold text-white ring-2 ring-navy-950 tabular-nums">
             {count}
           </span>
         )}
@@ -662,35 +662,36 @@ function NotificationBell() {
 /* ---------------- topbar ---------------- */
 function Topbar({ onMenu, onNewLead, onOpenPalette }) {
   return (
-    <header className="sticky top-0 z-30 border-b border-slate-200/70 bg-white/90 backdrop-blur-sm dark:border-white/10 dark:bg-navy-950/90">
+    <header className="sticky top-0 z-30 border-b border-white/10 bg-navy-950 transition-colors duration-300">
       <div className="mx-auto flex h-[52px] max-w-6xl items-center gap-3 px-4 sm:px-6">
         <button
           onClick={onMenu}
-          className="rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-slate-100 lg:hidden dark:hover:bg-white/10"
+          className="rounded-lg p-1.5 text-navy-200 transition-colors hover:bg-white/10 lg:hidden"
         >
           <Menu className="h-4.5 w-4.5" />
         </button>
+        <BrandMark className="h-7 w-7 shrink-0 lg:hidden" />
         <button
           onClick={onOpenPalette}
-          className="hidden h-9 w-72 items-center gap-2 rounded-lg border border-slate-300/70 bg-white px-2.5 text-[13px] text-slate-400 transition-colors hover:border-slate-400/70 sm:flex dark:border-white/10 dark:bg-navy-900 dark:hover:border-white/20"
+          className="hidden h-9 w-72 items-center gap-2 rounded-lg border border-white/10 bg-white/[0.07] px-2.5 text-[13px] text-navy-200 transition-colors hover:border-white/25 hover:bg-white/10 sm:flex"
         >
           <Search className="h-3.5 w-3.5" />
           Search borrowers, tasks, pages…
-          <kbd className="ml-auto rounded border border-slate-200 bg-slate-50 px-1 text-[10px] font-medium text-slate-400 dark:border-white/10 dark:bg-white/5">
+          <kbd className="ml-auto rounded border border-white/10 bg-white/10 px-1 text-[10px] font-medium text-navy-200">
             ⌘K
           </kbd>
         </button>
         <button
           onClick={onOpenPalette}
           aria-label="Search"
-          className="rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-slate-100 sm:hidden dark:hover:bg-white/10"
+          className="rounded-lg p-1.5 text-navy-200 transition-colors hover:bg-white/10 sm:hidden"
         >
           <Search className="h-4.5 w-4.5" />
         </button>
         <div className="ml-auto flex items-center gap-1.5">
           <ThemeToggle />
           <NotificationBell />
-          <Btn onClick={onNewLead}>
+          <Btn variant="sage" onClick={onNewLead}>
             <Plus className="h-3.5 w-3.5" /> <span className="hidden sm:inline">New Lead</span>
           </Btn>
         </div>
@@ -724,8 +725,8 @@ function MobileNav({ onMenu }) {
   const active = view.page === 'loan' ? 'borrowers' : view.page
   const items = [
     { page: 'dashboard', label: 'Home', icon: LayoutDashboard },
+    { page: 'calendar', label: 'Calendar', icon: CalendarDays },
     { page: 'borrowers', label: 'Borrowers', icon: Users },
-    { page: 'inbox', label: 'Inbox', icon: InboxIcon },
     { page: 'tasks', label: 'Tasks', icon: ListChecks },
   ]
   return (
@@ -742,10 +743,11 @@ function MobileNav({ onMenu }) {
               key={it.page}
               onClick={() => go(it.page)}
               className={cx(
-                'flex min-h-[3.25rem] flex-1 flex-col items-center justify-center gap-0.5 text-[10px] font-medium transition-colors',
-                isActive ? 'text-navy-900 dark:text-white' : 'text-slate-400',
+                'relative flex min-h-[3.25rem] flex-1 flex-col items-center justify-center gap-0.5 text-[10px] font-medium transition-colors',
+                isActive ? 'text-navy-800 dark:text-white' : 'text-slate-400',
               )}
             >
+              {isActive && <span className="absolute top-0 h-0.5 w-8 rounded-full bg-sage-500" />}
               <Icon className="h-5 w-5" strokeWidth={isActive ? 2.2 : 1.75} />
               {it.label}
             </button>

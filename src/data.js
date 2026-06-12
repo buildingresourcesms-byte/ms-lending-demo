@@ -193,6 +193,47 @@ export const rateLockStatus = (b) => {
   }
 }
 
+/* ---------- calendar events ----------
+   One place that turns borrowers + tasks into dated events so the
+   calendar, dashboard, and widgets all agree on what's happening. */
+export const CAL_TYPES = {
+  closing: { label: 'Closing', chip: 'bg-sage-500', soft: 'bg-sage-50 text-sage-700 ring-sage-600/20 dark:bg-sage-500/15' },
+  lock: { label: 'Rate lock', chip: 'bg-amber-500', soft: 'bg-amber-50 text-amber-700 ring-amber-600/25 dark:bg-amber-500/15' },
+  followup: { label: 'Follow-up', chip: 'bg-sky-500', soft: 'bg-sky-50 text-sky-700 ring-sky-600/20 dark:bg-sky-500/15' },
+  task: { label: 'Task due', chip: 'bg-violet-500', soft: 'bg-violet-50 text-violet-700 ring-violet-600/20 dark:bg-violet-500/15' },
+}
+
+export const calendarEvents = (borrowers, tasks, seat = 'team') => {
+  const mine = seat === 'team' ? borrowers : borrowers.filter((b) => b.officerId === seat)
+  const myTasks = seat === 'team' ? tasks : tasks.filter((t) => t.officerId === seat)
+  const events = []
+  mine.forEach((b) => {
+    if (isClosedOut(b)) return
+    if (b.estClosing)
+      events.push({ id: 'c' + b.id, date: b.estClosing, type: 'closing', title: b.name, sub: `${money(b.amount)} · ${b.status}`, borrowerId: b.id })
+    if (b.rateLockExpires)
+      events.push({ id: 'l' + b.id, date: b.rateLockExpires, type: 'lock', title: b.name, sub: `Lock expires · ${b.rate}%`, borrowerId: b.id })
+    if (b.nextFollowUp)
+      events.push({ id: 'f' + b.id, date: b.nextFollowUp, type: 'followup', title: b.name, sub: `Follow up · ${b.status}`, borrowerId: b.id })
+  })
+  myTasks.forEach((t) => {
+    if (t.status === 'Complete') return
+    const b = borrowers.find((x) => x.id === t.borrowerId)
+    events.push({ id: 't' + t.id, date: t.due, type: 'task', title: t.title, sub: b ? b.name : 'Team task', borrowerId: t.borrowerId, isTask: true })
+  })
+  return events.sort((a, z) => (a.date < z.date ? -1 : a.date > z.date ? 1 : 0))
+}
+
+/* date helpers for the month grid (noon-anchored to dodge TZ edges) */
+export const addDaysISO = (iso, n) => {
+  const t = new Date(iso + 'T12:00:00')
+  t.setDate(t.getDate() + n)
+  return t.toISOString().slice(0, 10)
+}
+export const weekdayOf = (iso) => new Date(iso + 'T12:00:00').getDay()
+export const monthLabel = (iso) =>
+  new Date(iso + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+
 /* ---------- borrower-portal stages ---------- */
 export const PORTAL_STAGES = [
   { label: 'Application Started', blurb: "You're officially on your way — we have your basic info." },

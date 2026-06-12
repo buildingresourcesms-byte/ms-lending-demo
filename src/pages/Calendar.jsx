@@ -1,134 +1,253 @@
-import { Landmark, KeyRound, CalendarDays } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import {
+  ChevronLeft,
+  ChevronRight,
+  Landmark,
+  KeyRound,
+  PhoneCall,
+  ListChecks,
+  CalendarDays,
+  Zap,
+} from 'lucide-react'
 import { useApp } from '../store.jsx'
 import {
+  calendarEvents,
+  CAL_TYPES,
+  addDaysISO,
+  weekdayOf,
+  monthLabel,
   officerById,
-  money,
   fmtDateFull,
   relDate,
   daysUntil,
-  isClosedOut,
+  d,
 } from '../data.js'
-import { PageHeader, Card, Avatar, EmptyState, cx } from '../ui.jsx'
+import { PageHeader, Card, Avatar, Btn, EmptyState, cx } from '../ui.jsx'
 
-const WINDOW = 45 // days out
+const TYPE_ICON = { closing: Landmark, lock: KeyRound, followup: PhoneCall, task: ListChecks }
+const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+
+/* first day of the month containing `iso` */
+const firstOfMonth = (iso) => iso.slice(0, 8) + '01'
+/* shift a YYYY-MM-01 iso by n months, purely numerically (no TZ risk) */
+const shiftMonth = (iso, n) => {
+  let y = Number(iso.slice(0, 4))
+  let m = Number(iso.slice(5, 7)) - 1 + n
+  y += Math.floor(m / 12)
+  m = ((m % 12) + 12) % 12
+  return `${y}-${String(m + 1).padStart(2, '0')}-01`
+}
 
 export default function Calendar() {
-  const { borrowers, seat, currentOfficer, openLoan } = useApp()
-  const scoped = (seat === 'team' ? borrowers : borrowers.filter((b) => b.officerId === seat)).filter(
-    (b) => !isClosedOut(b),
-  )
+  const { borrowers, tasks, seat, currentOfficer, openLoan, go, completeTask } = useApp()
+  const today = d(0)
+  const [month, setMonth] = useState(() => firstOfMonth(today))
+  const [selected, setSelected] = useState(today)
 
-  const events = []
-  scoped.forEach((b) => {
-    if (b.estClosing) {
-      const dd = daysUntil(b.estClosing)
-      if (dd >= 0 && dd <= WINDOW) events.push({ key: 'c' + b.id, date: b.estClosing, type: 'closing', b })
-    }
-    if (b.rateLockExpires) {
-      const dd = daysUntil(b.rateLockExpires)
-      if (dd >= -7 && dd <= WINDOW) events.push({ key: 'l' + b.id, date: b.rateLockExpires, type: 'lock', b })
-    }
-  })
-  events.sort((a, z) => (a.date < z.date ? -1 : a.date > z.date ? 1 : 0))
+  const events = useMemo(() => calendarEvents(borrowers, tasks, seat), [borrowers, tasks, seat])
+  const byDate = useMemo(() => {
+    const map = {}
+    events.forEach((e) => {
+      ;(map[e.date] ??= []).push(e)
+    })
+    return map
+  }, [events])
 
-  const groups = []
-  events.forEach((e) => {
-    const last = groups[groups.length - 1]
-    if (last && last.date === e.date) last.items.push(e)
-    else groups.push({ date: e.date, items: [e] })
-  })
+  /* 42-cell grid starting the Sunday on/before the 1st */
+  const cells = useMemo(() => {
+    const start = addDaysISO(month, -weekdayOf(month))
+    return Array.from({ length: 42 }, (_, i) => addDaysISO(start, i))
+  }, [month])
 
-  const closingCount = events.filter((e) => e.type === 'closing').length
-  const lockCount = events.filter((e) => e.type === 'lock').length
+  const inMonth = (iso) => iso.slice(0, 7) === month.slice(0, 7)
+  const monthEventCount = events.filter((e) => inMonth(e.date)).length
+  const selectedEvents = byDate[selected] ?? []
+  const overdueOpen = events.filter((e) => e.date < today).length
+
+  const goToday = () => {
+    setMonth(firstOfMonth(today))
+    setSelected(today)
+  }
 
   return (
     <div>
       <PageHeader
         title={currentOfficer ? `${currentOfficer.name.split(' ')[0]}’s Calendar` : 'Pipeline Calendar'}
-        sub={`Closings and rate-lock expirations in the next ${WINDOW} days.`}
+        sub="Closings, rate locks, follow-ups, and task deadlines — your whole pipeline on one calendar."
+        actions={
+          overdueOpen > 0 && (
+            <span className="flex items-center gap-1.5 rounded-lg bg-rose-50 px-2.5 py-1.5 text-xs font-medium text-rose-700 ring-1 ring-inset ring-rose-600/20 dark:bg-rose-500/15">
+              <Zap className="h-3.5 w-3.5" /> {overdueOpen} past due
+            </span>
+          )
+        }
       />
 
-      {/* legend / summary */}
-      <div className="mb-4 flex flex-wrap items-center gap-4 text-xs text-slate-500 dark:text-slate-400">
-        <span className="flex items-center gap-1.5">
-          <span className="grid h-5 w-5 place-items-center rounded-md bg-sage-50 text-sage-600 dark:bg-sage-500/15">
-            <Landmark className="h-3 w-3" />
-          </span>
-          {closingCount} closing{closingCount === 1 ? '' : 's'}
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="grid h-5 w-5 place-items-center rounded-md bg-amber-50 text-amber-600 dark:bg-amber-500/15">
-            <KeyRound className="h-3 w-3" />
-          </span>
-          {lockCount} rate lock{lockCount === 1 ? '' : 's'}
-        </span>
+      {/* month switcher + legend */}
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setMonth((m) => shiftMonth(m, -1))}
+            aria-label="Previous month"
+            className="rounded-lg border border-slate-300/70 bg-white p-1.5 text-slate-500 transition-colors hover:border-slate-400/70 hover:text-navy-900 dark:border-white/10 dark:bg-navy-900 dark:hover:text-white"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <button
+            onClick={() => setMonth((m) => shiftMonth(m, 1))}
+            aria-label="Next month"
+            className="rounded-lg border border-slate-300/70 bg-white p-1.5 text-slate-500 transition-colors hover:border-slate-400/70 hover:text-navy-900 dark:border-white/10 dark:bg-navy-900 dark:hover:text-white"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
+        <h2 className="min-w-40 text-lg font-semibold tracking-tight text-navy-950 dark:text-white">
+          {monthLabel(month)}
+        </h2>
+        <Btn variant="outline" sm onClick={goToday}>
+          Today
+        </Btn>
+        <span className="text-xs text-slate-400 tabular-nums">{monthEventCount} events</span>
+        <div className="ml-auto flex flex-wrap items-center gap-3">
+          {Object.entries(CAL_TYPES).map(([k, t]) => (
+            <span key={k} className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+              <span className={cx('h-2 w-2 rounded-full', t.chip)} /> {t.label}
+            </span>
+          ))}
+        </div>
       </div>
 
-      {groups.length === 0 ? (
-        <div className="rounded-xl border border-slate-200/80 bg-white dark:border-white/10 dark:bg-navy-900">
-          <EmptyState icon={CalendarDays} title="Nothing scheduled" sub={`No closings or lock expirations in the next ${WINDOW} days.`} />
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {groups.map((g) => {
-            const dd = daysUntil(g.date)
-            const isPast = dd < 0
-            return (
-              <div key={g.date} className="flex flex-col gap-2 sm:flex-row sm:gap-3">
-                {/* date rail */}
-                <div className="w-full shrink-0 pt-0.5 sm:w-28">
-                  <p className={cx('text-[13px] font-semibold', isPast ? 'text-rose-600' : 'text-navy-950 dark:text-white')}>
-                    {fmtDateFull(g.date)}
-                  </p>
-                  <p className="text-xs text-slate-400">{relDate(g.date)}</p>
-                </div>
-                {/* events */}
-                <div className="flex-1 space-y-2">
-                  {g.items.map((e) => {
-                    const officer = officerById(e.b.officerId)
-                    const isClosing = e.type === 'closing'
-                    const lockExpired = e.type === 'lock' && daysUntil(e.date) < 0
-                    return (
-                      <button
-                        key={e.key}
-                        onClick={() => openLoan(e.b.id)}
-                        className={cx(
-                          'flex w-full items-center gap-3 rounded-xl border bg-white p-3 text-left shadow-[0_1px_2px_rgba(16,24,40,0.04)] transition-colors hover:bg-slate-50/70 dark:bg-navy-900 dark:hover:bg-white/5',
-                          isClosing
-                            ? 'border-sage-200/80 dark:border-sage-500/25'
-                            : lockExpired
-                              ? 'border-rose-200 dark:border-rose-500/30'
-                              : 'border-amber-200/80 dark:border-amber-500/25',
-                        )}
+      <div className="grid gap-4 xl:grid-cols-[1fr_20rem]">
+        {/* ---------- month grid ---------- */}
+        <Card pad={false} className="overflow-hidden">
+          <div className="grid grid-cols-7 border-b border-slate-100 dark:border-white/10">
+            {DOW.map((w) => (
+              <p key={w} className="py-2 text-center text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                <span className="sm:hidden">{w[0]}</span>
+                <span className="hidden sm:inline">{w}</span>
+              </p>
+            ))}
+          </div>
+          <div className="grid grid-cols-7">
+            {cells.map((iso, i) => {
+              const evts = byDate[iso] ?? []
+              const isToday = iso === today
+              const isSelected = iso === selected
+              const dim = !inMonth(iso)
+              const weekend = i % 7 === 0 || i % 7 === 6
+              return (
+                <button
+                  key={iso}
+                  onClick={() => setSelected(iso)}
+                  className={cx(
+                    'relative flex min-h-[4.5rem] flex-col items-stretch gap-1 border-b border-r border-slate-100 p-1.5 text-left transition-colors sm:min-h-[5.5rem] dark:border-white/[0.06]',
+                    (i + 1) % 7 === 0 && 'border-r-0',
+                    i >= 35 && 'border-b-0',
+                    weekend && !isSelected && 'bg-slate-50/50 dark:bg-white/[0.02]',
+                    isSelected ? 'bg-navy-50/80 dark:bg-white/[0.08]' : 'hover:bg-slate-50 dark:hover:bg-white/[0.04]',
+                  )}
+                >
+                  <span
+                    className={cx(
+                      'grid h-6 w-6 place-items-center rounded-full text-xs tabular-nums',
+                      isToday
+                        ? 'bg-navy-900 font-bold text-white dark:bg-white dark:text-navy-950'
+                        : dim
+                          ? 'text-slate-300 dark:text-slate-600'
+                          : 'font-medium text-slate-600 dark:text-slate-300',
+                    )}
+                  >
+                    {Number(iso.slice(8, 10))}
+                  </span>
+                  {/* event chips: bars on ≥sm, dots on mobile */}
+                  <span className="hidden flex-col gap-0.5 sm:flex">
+                    {evts.slice(0, 3).map((e) => (
+                      <span
+                        key={e.id}
+                        className={cx('truncate rounded px-1 py-px text-[10px] font-medium text-white', CAL_TYPES[e.type].chip, dim && 'opacity-50')}
                       >
-                        <span
-                          className={cx(
-                            'grid h-8 w-8 shrink-0 place-items-center rounded-lg',
-                            isClosing
-                              ? 'bg-sage-50 text-sage-600 dark:bg-sage-500/15'
-                              : lockExpired
-                                ? 'bg-rose-50 text-rose-600 dark:bg-rose-500/15'
-                                : 'bg-amber-50 text-amber-600 dark:bg-amber-500/15',
-                          )}
-                        >
-                          {isClosing ? <Landmark className="h-4 w-4" /> : <KeyRound className="h-4 w-4" />}
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-[13px] font-medium text-navy-950 dark:text-white">{e.b.name}</p>
-                          <p className="truncate text-xs text-slate-400">
-                            {isClosing ? 'Closing' : lockExpired ? 'Rate lock expired' : 'Rate lock expires'} · {money(e.b.amount)} · {e.b.status}
-                          </p>
-                        </div>
-                        <Avatar officer={officer} size="h-6 w-6 text-[9px]" />
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      )}
+                        {e.title}
+                      </span>
+                    ))}
+                    {evts.length > 3 && (
+                      <span className="px-1 text-[10px] font-medium text-slate-400">+{evts.length - 3} more</span>
+                    )}
+                  </span>
+                  <span className="flex flex-wrap gap-0.5 sm:hidden">
+                    {evts.slice(0, 4).map((e) => (
+                      <span key={e.id} className={cx('h-1.5 w-1.5 rounded-full', CAL_TYPES[e.type].chip, dim && 'opacity-50')} />
+                    ))}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </Card>
+
+        {/* ---------- selected-day panel ---------- */}
+        <Card
+          title={fmtDateFull(selected)}
+          sub={selected === today ? 'Today' : relDate(selected)}
+          pad={false}
+        >
+          {selectedEvents.length === 0 ? (
+            <EmptyState icon={CalendarDays} title="Nothing on this day" sub="Pick a day with colored chips to see its events." />
+          ) : (
+            <ul className="divide-y divide-slate-100 dark:divide-white/[0.06]">
+              {selectedEvents.map((e) => {
+                const Icon = TYPE_ICON[e.type]
+                const past = e.date < today
+                return (
+                  <li key={e.id} className="flex items-start gap-3 px-4 py-3">
+                    <span className={cx('mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg ring-1 ring-inset', CAL_TYPES[e.type].soft)}>
+                      <Icon className="h-4 w-4" strokeWidth={1.75} />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[13px] font-medium text-navy-950 dark:text-white">{e.title}</p>
+                      <p className="truncate text-xs text-slate-400">
+                        {CAL_TYPES[e.type].label} · {e.sub}
+                        {past && <span className="ml-1 font-medium text-rose-600">· {-daysUntil(e.date)}d overdue</span>}
+                      </p>
+                      <div className="mt-1.5 flex items-center gap-2">
+                        {e.borrowerId && (
+                          <button
+                            onClick={() => openLoan(e.borrowerId)}
+                            className="text-xs font-medium text-navy-600 transition-colors hover:text-navy-900 dark:text-slate-300 dark:hover:text-white"
+                          >
+                            Open file →
+                          </button>
+                        )}
+                        {e.isTask && (
+                          <button
+                            onClick={() => completeTask(e.id.slice(1))}
+                            className="text-xs font-medium text-sage-700 transition-colors hover:text-sage-800"
+                          >
+                            Mark done ✓
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    {e.borrowerId && (
+                      <Avatar
+                        officer={officerById(borrowers.find((b) => b.id === e.borrowerId)?.officerId ?? 'michelle')}
+                        size="h-6 w-6 text-[9px]"
+                      />
+                    )}
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+          <div className="border-t border-slate-100 px-4 py-2.5 dark:border-white/10">
+            <button
+              onClick={() => go('tasks')}
+              className="text-xs font-medium text-navy-600 transition-colors hover:text-navy-900 dark:text-slate-300 dark:hover:text-white"
+            >
+              Open the task board →
+            </button>
+          </div>
+        </Card>
+      </div>
     </div>
   )
 }

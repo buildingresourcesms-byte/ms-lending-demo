@@ -24,6 +24,11 @@ import {
   money,
   SKY,
   timeOfDay,
+  d,
+  addDaysISO,
+  weekdayOf,
+  calendarEvents,
+  CAL_TYPES,
 } from '../data.js'
 import { Card, Stat, Btn, EmptyState, cx } from '../ui.jsx'
 import { PipelineBars, Donut, Sparkline } from '../charts.jsx'
@@ -39,7 +44,7 @@ const STARS = [
 ]
 
 export default function Dashboard() {
-  const { metrics, borrowers, goBorrowers, go, openLoan, completeTask, seat, currentOfficer } = useApp()
+  const { metrics, borrowers, tasks, goBorrowers, go, openLoan, completeTask, seat, currentOfficer } = useApp()
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
   const sky = SKY[timeOfDay()]
@@ -68,9 +73,12 @@ export default function Dashboard() {
   const lastWeek = WEEKLY_LEADS[WEEKLY_LEADS.length - 2]
   const delta = Math.round(((thisWeek - lastWeek) / lastWeek) * 100)
 
-  const closings = mine
-    .filter((b) => b.estClosing && !isClosedOut(b) && daysUntil(b.estClosing) >= 0 && daysUntil(b.estClosing) <= 21)
-    .sort((a, z) => (a.estClosing < z.estClosing ? -1 : 1))
+  /* next 7 days for the week-at-a-glance strip */
+  const today = d(0)
+  const week = Array.from({ length: 7 }, (_, i) => addDaysISO(today, i))
+  const weekEvents = calendarEvents(borrowers, tasks, seat)
+  const eventsOn = (iso) => weekEvents.filter((e) => e.date === iso)
+  const pastDue = weekEvents.filter((e) => e.date < today).length
 
   return (
     <div className="space-y-5">
@@ -192,38 +200,66 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {/* ---------- closing soon ---------- */}
-      {closings.length > 0 && (
-        <Card title="Closing soon" sub="Files with a closing date in the next 3 weeks">
-          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
-            {closings.slice(0, 6).map((b) => {
-              const rl = rateLockStatus(b)
-              return (
-                <button
-                  key={b.id}
-                  onClick={() => openLoan(b.id)}
-                  className="rounded-lg border border-slate-200/80 p-3 text-left transition-colors hover:border-navy-300/70 hover:bg-slate-50/60 dark:border-white/10 dark:hover:border-white/20 dark:hover:bg-white/5"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="truncate text-[13px] font-medium text-navy-950 dark:text-white">{b.name}</p>
-                    <span className="shrink-0 rounded bg-sage-50 px-1.5 py-0.5 text-[11px] font-semibold text-sage-700 ring-1 ring-inset ring-sage-600/20 tabular-nums dark:bg-sage-500/15">
-                      {relDate(b.estClosing)}
+      {/* ---------- your week (calendar strip) ---------- */}
+      <Card
+        title="Your week"
+        sub="Closings, rate locks, follow-ups & tasks — tap a day to open the calendar"
+        action={
+          <button
+            onClick={() => go('calendar')}
+            className="flex items-center gap-1 text-xs font-medium text-navy-600 transition-colors hover:text-navy-900 dark:text-slate-300 dark:hover:text-white"
+          >
+            Open calendar <ArrowRight className="h-3 w-3" />
+          </button>
+        }
+      >
+        {pastDue > 0 && (
+          <button
+            onClick={() => go('calendar')}
+            className="mb-3 flex w-full items-center gap-2 rounded-lg bg-rose-50 px-3 py-2 text-left text-xs font-medium text-rose-700 ring-1 ring-inset ring-rose-600/20 transition-colors hover:bg-rose-100/70 dark:bg-rose-500/15"
+          >
+            <AlarmClock className="h-3.5 w-3.5 shrink-0" />
+            {pastDue} item{pastDue > 1 ? 's' : ''} past due — see them on the calendar
+          </button>
+        )}
+        <div className="grid grid-cols-7 gap-1.5">
+          {week.map((iso) => {
+            const evts = eventsOn(iso)
+            const isToday = iso === today
+            const dow = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][weekdayOf(iso)]
+            return (
+              <button
+                key={iso}
+                onClick={() => go('calendar')}
+                title={evts.length ? `${evts.length} event${evts.length > 1 ? 's' : ''}` : 'Free'}
+                className={cx(
+                  'flex min-h-[4.25rem] flex-col items-center gap-1 rounded-xl border p-2 transition-all duration-150 active:scale-[0.97]',
+                  isToday
+                    ? 'border-navy-800 bg-navy-900 text-white dark:border-white/40'
+                    : 'border-slate-200/80 bg-white hover:border-navy-300/70 hover:bg-slate-50/60 dark:border-white/10 dark:bg-navy-900 dark:hover:border-white/25',
+                )}
+              >
+                <span className={cx('text-[10px] font-semibold uppercase', isToday ? 'text-white/70' : 'text-slate-400')}>
+                  {dow}
+                </span>
+                <span className={cx('text-sm font-semibold tabular-nums', isToday ? 'text-white' : 'text-navy-950 dark:text-white')}>
+                  {Number(iso.slice(8, 10))}
+                </span>
+                <span className="flex flex-wrap items-center justify-center gap-0.5">
+                  {evts.slice(0, 4).map((e) => (
+                    <span key={e.id} className={cx('h-1.5 w-1.5 rounded-full', CAL_TYPES[e.type].chip)} />
+                  ))}
+                  {evts.length > 4 && (
+                    <span className={cx('text-[9px] font-medium', isToday ? 'text-white/70' : 'text-slate-400')}>
+                      +{evts.length - 4}
                     </span>
-                  </div>
-                  <p className="mt-1 truncate text-xs text-slate-400">
-                    {money(b.amount)} · {fmtDate(b.estClosing)}
-                  </p>
-                  {rl && (rl.soon || rl.expired) && (
-                    <p className={cx('mt-1.5 flex items-center gap-1 text-[11px] font-medium', rl.expired ? 'text-rose-600' : 'text-amber-600')}>
-                      <KeyRound className="h-3 w-3" /> {rl.label}
-                    </p>
                   )}
-                </button>
-              )
-            })}
-          </div>
-        </Card>
-      )}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      </Card>
 
       {/* ---------- work lists ---------- */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">

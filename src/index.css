@@ -46,7 +46,7 @@
 
 /* 🍂 Fall — espresso brown + harvest orange, warm cream canvas */
 html[data-theme='fall'] {
-  --app-bg: #faf6f0;
+  --app-bg: #f6eddd;
   --app-bg-dark: #171009;
   --color-navy-50: #f9f3ec;
   --color-navy-100: #f1e5d8;
@@ -73,7 +73,7 @@ html[data-theme='fall'] {
 
 /* 🌸 Magnolia — Mississippi evergreen + warm gold, cream canvas */
 html[data-theme='magnolia'] {
-  --app-bg: #f8f7f2;
+  --app-bg: #f1f1e6;
   --app-bg-dark: #0d1410;
   --color-navy-50: #f3f8f5;
   --color-navy-100: #e6f1ea;
@@ -100,7 +100,7 @@ html[data-theme='magnolia'] {
 
 /* 🌊 Coastal — deep ocean teal + coral, airy canvas */
 html[data-theme='coastal'] {
-  --app-bg: #f4f9fa;
+  --app-bg: #e7f2f5;
   --app-bg-dark: #081418;
   --color-navy-50: #f0f7fa;
   --color-navy-100: #ddebf1;
@@ -127,7 +127,7 @@ html[data-theme='coastal'] {
 
 /* ❄️ Frost — cool indigo slate + icy teal, crisp canvas */
 html[data-theme='frost'] {
-  --app-bg: #f6f8fb;
+  --app-bg: #eef1f8;
   --app-bg-dark: #0d1019;
   --color-navy-50: #f4f6fa;
   --color-navy-100: #e7eaf2;
