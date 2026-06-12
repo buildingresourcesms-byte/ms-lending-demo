@@ -24,6 +24,7 @@ import {
 import { useApp } from '../store.jsx'
 import {
   officerById,
+  agentById,
   OFFICERS,
   money,
   fmtDate,
@@ -338,6 +339,13 @@ export default function LoanFile({ id, initialTab = 'Overview' }) {
                 </Badge>
               )}
               <Badge cls="bg-slate-50 text-slate-600 ring-slate-400/30">{b.loanType} · {b.purpose}</Badge>
+              {b.agentId && agentById(b.agentId) && (
+                <button onClick={() => go('partners')} title="View agent partner">
+                  <Badge cls="bg-rose-50 text-rose-700 ring-rose-600/20 transition-colors hover:bg-rose-100">
+                    🤝 {agentById(b.agentId).name} · {agentById(b.agentId).brokerage}
+                  </Badge>
+                </button>
+              )}
             </div>
           </div>
         </div>

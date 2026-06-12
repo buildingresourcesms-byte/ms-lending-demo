@@ -6,6 +6,8 @@ import {
   Inbox as InboxIcon,
   BarChart3,
   CalendarDays,
+  Building2,
+  Briefcase,
   HeartHandshake,
   ClipboardList,
   UserCircle,
@@ -28,7 +30,7 @@ import {
   LogOut,
 } from 'lucide-react'
 import { AppProvider, useApp } from './store.jsx'
-import { OFFICERS, LOAN_TYPES, SOURCES, INTEGRATIONS, daysUntil, rateLockStatus, timeOfDay, SKY, DISCLAIMER } from './data.js'
+import { OFFICERS, LOAN_TYPES, SOURCES, INTEGRATIONS, agentById, daysUntil, rateLockStatus, timeOfDay, SKY, DISCLAIMER } from './data.js'
 import { BrandMark, Btn, Modal, Field, Select, SearchInput, inputCls, cx } from './ui.jsx'
 import Dashboard from './pages/Dashboard.jsx'
 import Borrowers from './pages/Borrowers.jsx'
@@ -39,6 +41,8 @@ import Apply from './pages/Apply.jsx'
 import Inbox from './pages/Inbox.jsx'
 import Reports from './pages/Reports.jsx'
 import Calendar from './pages/Calendar.jsx'
+import Partners from './pages/Partners.jsx'
+import AgentPortal from './pages/AgentPortal.jsx'
 import Profile from './pages/Profile.jsx'
 import Integrations, { INTEGRATION_ICONS } from './pages/Integrations.jsx'
 import Settings from './pages/Settings.jsx'
@@ -49,14 +53,16 @@ const MS_CITIES = ['Brandon', 'Flowood', 'Jackson', 'Madison', 'Pearl', 'Ridgela
 const NAV_MAIN = [
   { page: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { page: 'calendar', label: 'Calendar', icon: CalendarDays },
+  { page: 'partners', label: 'Agent Partners', icon: Building2 },
   { page: 'borrowers', label: 'Borrowers', icon: Users },
   { page: 'inbox', label: 'Inbox', icon: InboxIcon },
   { page: 'tasks', label: 'Tasks', icon: ListChecks },
   { page: 'reports', label: 'Reports', icon: BarChart3 },
 ]
 const NAV_CLIENT = [
-  { page: 'apply', label: 'Apply Intake', icon: ClipboardList },
+  { page: 'agentportal', label: 'Agent Portal', icon: Briefcase },
   { page: 'portal', label: 'Borrower Portal', icon: HeartHandshake },
+  { page: 'apply', label: 'Apply Intake', icon: ClipboardList },
 ]
 const NAV_SYSTEM = [{ page: 'settings', label: 'Settings', icon: SettingsIcon }]
 
@@ -425,11 +431,13 @@ function ThemeToggle() {
 /* ---------------- ⌘K command palette ---------------- */
 const PALETTE_PAGES = [
   ['dashboard', 'Dashboard'],
+  ['calendar', 'Calendar'],
+  ['partners', 'Agent Partners'],
   ['borrowers', 'Borrowers'],
   ['inbox', 'Inbox'],
   ['tasks', 'Tasks'],
-  ['calendar', 'Calendar'],
   ['reports', 'Reports'],
+  ['agentportal', 'Agent Portal'],
   ['apply', 'Apply Intake'],
   ['portal', 'Borrower Portal'],
   ['integrations', 'Integrations'],
@@ -550,8 +558,19 @@ function NotificationBell() {
 
   const mine = seat === 'team' ? borrowers : borrowers.filter((b) => b.officerId === seat)
   const applyLeads = mine.filter((b) => b.viaApply && b.status === 'New Lead')
+  const referralLeads = mine.filter((b) => b.viaReferral && b.status === 'New Lead')
 
   const items = [
+    ...(notifPrefs.applyLeads
+      ? referralLeads.map((b) => ({
+          key: 'r' + b.id,
+          icon: Building2,
+          tone: 'bg-rose-50 text-rose-600',
+          text: `Referral from ${agentById(b.agentId)?.name ?? 'an agent partner'}`,
+          sub: b.name,
+          onClick: () => openLoan(b.id),
+        }))
+      : []),
     ...(notifPrefs.applyLeads
       ? applyLeads.map((b) => ({
           key: 'a' + b.id,
@@ -700,6 +719,58 @@ function Topbar({ onMenu, onNewLead, onOpenPalette }) {
   )
 }
 
+/* ---------------- closing-day confetti ---------------- */
+const CONFETTI_COLORS = [
+  'var(--color-sage-500)',
+  'var(--color-navy-500)',
+  'var(--color-sage-300)',
+  '#f59e0b',
+  '#38bdf8',
+  '#f43f5e',
+]
+
+function Confetti() {
+  const { celebrate } = useApp()
+  const [burst, setBurst] = useState(null)
+
+  useEffect(() => {
+    if (!celebrate) return
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    const pieces = Array.from({ length: 44 }, (_, i) => ({
+      id: `${celebrate}-${i}`,
+      left: Math.random() * 100,
+      delay: Math.random() * 0.5,
+      dur: 1.8 + Math.random() * 1.4,
+      size: 6 + Math.random() * 6,
+      color: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
+      round: i % 3 === 0,
+    }))
+    setBurst(pieces)
+    const t = setTimeout(() => setBurst(null), 3800)
+    return () => clearTimeout(t)
+  }, [celebrate])
+
+  if (!burst) return null
+  return (
+    <div className="pointer-events-none fixed inset-0 z-[80] overflow-hidden" aria-hidden="true">
+      {burst.map((p) => (
+        <span
+          key={p.id}
+          className={cx('animate-confetti absolute top-0', p.round ? 'rounded-full' : 'rounded-[2px]')}
+          style={{
+            left: `${p.left}%`,
+            width: p.size,
+            height: p.size * (p.round ? 1 : 0.6),
+            backgroundColor: p.color,
+            '--confetti-dur': `${p.dur}s`,
+            '--confetti-delay': `${p.delay}s`,
+          }}
+        />
+      ))}
+    </div>
+  )
+}
+
 /* ---------------- toasts ---------------- */
 function Toasts() {
   const { toasts } = useApp()
@@ -795,6 +866,8 @@ function Shell() {
           {view.page === 'inbox' && <Inbox />}
           {view.page === 'reports' && <Reports />}
           {view.page === 'calendar' && <Calendar />}
+          {view.page === 'partners' && <Partners />}
+          {view.page === 'agentportal' && <AgentPortal key={view.id ?? 'default'} initialId={view.id} />}
           {view.page === 'profile' && <Profile key={view.id ?? 'me'} />}
           {view.page === 'portal' && <Portal key={view.id ?? 'default'} initialId={view.id} />}
           {view.page === 'apply' && <Apply />}
@@ -808,6 +881,7 @@ function Shell() {
         </footer>
       </div>
       <MobileNav onMenu={() => setMenuOpen(true)} />
+      <Confetti />
       <Toasts />
       <NewLeadModal open={leadOpen} onClose={() => setLeadOpen(false)} />
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />

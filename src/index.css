@@ -261,6 +261,16 @@ html.dark body {
   animation: twinkle 3.2s ease-in-out infinite;
 }
 
+/* closing-day confetti — falls past the viewport then the layer unmounts */
+@keyframes confetti-fall {
+  0% { transform: translateY(-8vh) rotate(0deg); opacity: 1; }
+  85% { opacity: 1; }
+  100% { transform: translateY(108vh) rotate(720deg); opacity: 0; }
+}
+.animate-confetti {
+  animation: confetti-fall var(--confetti-dur, 2.2s) ease-in var(--confetti-delay, 0s) both;
+}
+
 /* Respect users who prefer reduced motion (Quick Ref §1 / §7) */
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }

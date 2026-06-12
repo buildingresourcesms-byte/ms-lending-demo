@@ -316,6 +316,56 @@ export const officerById = (id) => OFFICERS.find((o) => o.id === id) ?? OFFICERS
 
 export const SOURCES = ['Realtor Referral', 'Past Client', 'Zillow', 'Facebook', 'Website', 'Walk-in']
 
+/* ============================================================
+   REAL ESTATE AGENT PARTNERS — the referral network. The whole
+   point: agents send buyers, watch their deals live, and close
+   faster with MS Lending. (All agents are fictional sample data.)
+   ============================================================ */
+export const AGENTS = [
+  {
+    id: 'holly',
+    name: 'Holly Sandifer',
+    brokerage: 'McIntosh & Co. Realtors',
+    market: 'Madison',
+    phone: '(601) 555-0411',
+    email: 'holly@mcintoshrealtors.com',
+    color: 'bg-rose-500',
+    initials: 'HS',
+    since: '2021',
+  },
+  {
+    id: 'bree',
+    name: 'Bree Thompson',
+    brokerage: 'Magnolia Realty Group',
+    market: 'Brandon',
+    phone: '(601) 555-0428',
+    email: 'bree@magnoliarealty.com',
+    color: 'bg-indigo-500',
+    initials: 'BT',
+    since: '2023',
+  },
+  {
+    id: 'carl',
+    name: 'Carl Jenkins',
+    brokerage: 'Crossgates Realty',
+    market: 'Pearl & Flowood',
+    phone: '(601) 555-0436',
+    email: 'carl@crossgatesrealty.com',
+    color: 'bg-amber-600',
+    initials: 'CJ',
+    since: '2022',
+  },
+]
+
+export const agentById = (id) => AGENTS.find((a) => a.id === id) ?? null
+
+/* deals attributed to an agent (their buyers financed with us) */
+export const agentDeals = (borrowers, agentId) => borrowers.filter((b) => b.agentId === agentId)
+
+/* co-branded apply link: the agent shares it, the LO gets the lead,
+   the agent gets the credit */
+export const agentApplyLink = (officer, agent) => `${APPLY_BASE}/${officer.id}/${agent.id}`
+
 export const LOAN_TYPES = ['Conventional', 'FHA', 'VA', 'USDA', 'Jumbo']
 
 /* MS Lending's real secure online application (Michelle's 1003 portal).
@@ -385,6 +435,7 @@ const B = (o) => ({
   term: 30,
   estClosing: null,
   lastContact: null,
+  agentId: null,
   notes: [],
   timeline: [],
   ...o,
@@ -437,6 +488,7 @@ export const SEED_BORROWERS = [
     propertyAddress: '412 Hartfield Place, Madison, MS 39110',
     employer: 'Entergy — Engineer / Madison County Schools — Teacher',
     source: 'Realtor Referral',
+    agentId: 'holly',
     status: 'Documents Needed',
     officerId: 'michelle',
     createdAt: d(-12),
@@ -543,7 +595,9 @@ export const SEED_BORROWERS = [
     propertyAddress: '509 Lakeland Trace, Flowood, MS 39232',
     employer: 'Baptist Medical — PT / Self-employed designer',
     source: 'Realtor Referral',
+    agentId: 'holly',
     status: 'Pre-Approved',
+    preApprovalMax: 280000,
     officerId: 'michelle',
     createdAt: d(-16),
     stageEnteredAt: d(-2),
@@ -578,6 +632,7 @@ export const SEED_BORROWERS = [
     propertyAddress: '88 Tinnin Rd, Clinton, MS 39056',
     employer: 'Mississippi College — Registrar Office',
     source: 'Website',
+    agentId: 'carl',
     status: 'In Review',
     officerId: 'lauren',
     createdAt: d(-9),
@@ -644,7 +699,9 @@ export const SEED_BORROWERS = [
     propertyAddress: '233 Sundial Rd, Madison, MS 39110',
     employer: 'Merit Health — Billing Specialist',
     source: 'Realtor Referral',
+    agentId: 'bree',
     status: 'Clear to Close',
+    preApprovalMax: 215000,
     officerId: 'michelle',
     createdAt: d(-38),
     stageEnteredAt: d(-2),
@@ -682,7 +739,9 @@ export const SEED_BORROWERS = [
     propertyAddress: '604 Crossgates Blvd, Brandon, MS 39042',
     employer: 'US Army (Ret.) / Rankin County Schools',
     source: 'Website',
+    agentId: 'bree',
     status: 'Underwriting',
+    preApprovalMax: 350000,
     officerId: 'julene',
     createdAt: d(-22),
     stageEnteredAt: d(-6),
@@ -783,6 +842,7 @@ export const SEED_BORROWERS = [
     propertyAddress: '105 Ashbrooke Blvd, Madison, MS 39110',
     employer: 'Lawson Dental Group — Owners',
     source: 'Realtor Referral',
+    agentId: 'holly',
     status: 'In Review',
     officerId: 'julene',
     createdAt: d(-11),
@@ -818,6 +878,7 @@ export const SEED_BORROWERS = [
     propertyAddress: '76 Easthaven Dr, Clinton, MS 39056',
     employer: 'Clinton Public Schools — Teacher',
     source: 'Past Client',
+    agentId: 'carl',
     status: 'Closed',
     officerId: 'julene',
     createdAt: d(-52),

@@ -7,6 +7,7 @@ import {
   NEXT_ACTION_LABEL,
   TASK_STATUSES,
   officerById,
+  agentById,
   docsFor,
   d,
   daysUntil,
@@ -46,7 +47,14 @@ export function AppProvider({ children }) {
     weekly: false,
   })
   const [signedIn, setSignedIn] = useState(false)
-  const [theme, setTheme] = useState('light')
+  const [theme, setTheme] = useState(() => {
+    try {
+      return localStorage.getItem('msl-dark') === '1' ? 'dark' : 'light'
+    } catch {
+      return 'light'
+    }
+  })
+  const [celebrate, setCelebrate] = useState(0)
   const [palette, setPaletteState] = useState(() => {
     try {
       return localStorage.getItem('msl-palette') ?? 'classic'
@@ -64,7 +72,19 @@ export function AppProvider({ children }) {
     setSignedIn(true)
   }, [])
   const signOut = useCallback(() => setSignedIn(false), [])
-  const toggleTheme = useCallback(() => setTheme((t) => (t === 'light' ? 'dark' : 'light')), [])
+  const toggleTheme = useCallback(
+    () =>
+      setTheme((t) => {
+        const next = t === 'light' ? 'dark' : 'light'
+        try {
+          localStorage.setItem('msl-dark', next === 'dark' ? '1' : '0')
+        } catch {
+          /* storage unavailable; theme still toggles for this session */
+        }
+        return next
+      }),
+    [],
+  )
 
   const setPalette = useCallback((id) => {
     setPaletteState(id)
@@ -152,12 +172,16 @@ export function AppProvider({ children }) {
             nb = logEvent(nb, 'doc', 'Document request sent to borrower')
           }
           nb = logEvent(nb, 'status', next === 'Closed' ? 'Loan closed 🎉' : `Status moved: ${b.status} → ${next}`)
+          // partners never have to ask "any update?" — their portal & phone get it automatically
+          const agent = agentById(nb.agentId)
+          if (agent) nb = logEvent(nb, 'sms', `Auto-update sent to ${agent.name} (agent): ${next}`)
           toast(
             next === 'Closed'
               ? `${b.name} — loan closed! 🎉`
               : `${b.name} → ${next}`,
             next === 'Closed' ? '🎉' : '⚡',
           )
+          if (next === 'Closed') setCelebrate((c) => c + 1)
           return nb
         }),
       )
@@ -255,14 +279,21 @@ export function AppProvider({ children }) {
           {
             date: d(0),
             type: form.viaApply ? 'apply' : 'created',
-            text: form.viaApply
-              ? `Captured via apply link — ${form.source}`
-              : `Lead created from ${form.source}`,
+            text: form.viaReferral
+              ? `Referred by ${form.referredBy}`
+              : form.viaApply
+                ? `Captured via apply link — ${form.source}`
+                : `Lead created from ${form.source}`,
           },
         ],
       }
       setBorrowers((list) => [nb, ...list])
-      toast(`${form.name} added as a new lead`, '✓')
+      toast(
+        form.viaReferral
+          ? `Referral in — ${form.name} from ${form.referredBy?.split(' (')[0]}`
+          : `${form.name} added as a new lead`,
+        form.viaReferral ? '🤝' : '✓',
+      )
       if (navigate) openLoan(id)
       return id
     },
@@ -285,6 +316,20 @@ export function AppProvider({ children }) {
     (id) => {
       setTasks((list) => list.map((t) => (t.id === id ? { ...t, status: 'Complete' } : t)))
       toast('Task completed', '✅')
+    },
+    [toast],
+  )
+
+  /* drop a task directly into a column (drag & drop) */
+  const setTaskStatus = useCallback((id, status) => {
+    setTasks((list) => list.map((t) => (t.id === id ? { ...t, status } : t)))
+  }, [])
+
+  /* move a task's due date (calendar reschedule) */
+  const retargetTask = useCallback(
+    (id, due) => {
+      setTasks((list) => list.map((t) => (t.id === id ? { ...t, due } : t)))
+      toast('Task rescheduled', '📅')
     },
     [toast],
   )
@@ -367,6 +412,9 @@ export function AppProvider({ children }) {
     moveTask,
     completeTask,
     addTask,
+    setTaskStatus,
+    retargetTask,
+    celebrate,
     logCommunication,
     connections,
     connectIntegration,

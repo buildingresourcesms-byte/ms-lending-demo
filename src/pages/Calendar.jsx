@@ -8,6 +8,9 @@ import {
   ListChecks,
   CalendarDays,
   Zap,
+  Plus,
+  Move,
+  X,
 } from 'lucide-react'
 import { useApp } from '../store.jsx'
 import {
@@ -17,12 +20,90 @@ import {
   weekdayOf,
   monthLabel,
   officerById,
+  isClosedOut,
   fmtDateFull,
+  fmtDate,
   relDate,
   daysUntil,
   d,
 } from '../data.js'
-import { PageHeader, Card, Avatar, Btn, EmptyState, cx } from '../ui.jsx'
+import { PageHeader, Card, Avatar, Btn, Modal, Field, Select, inputCls, EmptyState, cx } from '../ui.jsx'
+
+/* ---------- schedule something on a chosen day ---------- */
+function ScheduleModal({ date, candidates, seat, onClose }) {
+  const { setFollowUp, addTask } = useApp()
+  const [kind, setKind] = useState('followup')
+  const [borrowerId, setBorrowerId] = useState(candidates[0]?.id)
+  const [title, setTitle] = useState('')
+  const [due, setDue] = useState(date)
+
+  const submit = (e) => {
+    e.preventDefault()
+    const b = candidates.find((x) => x.id === borrowerId)
+    if (!b) return
+    if (kind === 'followup') {
+      setFollowUp(b.id, due)
+    } else {
+      if (!title.trim()) return
+      addTask({
+        title: title.trim(),
+        borrowerId: b.id,
+        officerId: seat === 'team' ? b.officerId : seat,
+        due,
+        priority: 'Medium',
+      })
+    }
+    onClose()
+  }
+
+  return (
+    <Modal open onClose={onClose} title={`Schedule for ${fmtDateFull(date)}`} sub="Put it on the calendar — it shows up everywhere.">
+      <form onSubmit={submit} className="space-y-4">
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="What is it?">
+            <Select
+              value={kind}
+              onChange={setKind}
+              options={[
+                { value: 'followup', label: 'Follow-up call' },
+                { value: 'task', label: 'Task' },
+              ]}
+            />
+          </Field>
+          <Field label="Borrower">
+            <Select
+              value={borrowerId}
+              onChange={setBorrowerId}
+              options={candidates.map((b) => ({ value: b.id, label: b.name }))}
+            />
+          </Field>
+        </div>
+        {kind === 'task' && (
+          <Field label="What needs to happen?">
+            <input
+              autoFocus
+              className={inputCls}
+              placeholder="e.g. Confirm appraisal appointment"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+            />
+          </Field>
+        )}
+        <Field label="Date">
+          <input type="date" className={inputCls} value={due} onChange={(e) => setDue(e.target.value)} />
+        </Field>
+        <div className="flex justify-end gap-2 pt-1">
+          <Btn variant="ghost" onClick={onClose}>
+            Cancel
+          </Btn>
+          <Btn type="submit" disabled={kind === 'task' && !title.trim()}>
+            <Plus className="h-3.5 w-3.5" /> Schedule
+          </Btn>
+        </div>
+      </form>
+    </Modal>
+  )
+}
 
 const TYPE_ICON = { closing: Landmark, lock: KeyRound, followup: PhoneCall, task: ListChecks }
 const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
@@ -39,10 +120,25 @@ const shiftMonth = (iso, n) => {
 }
 
 export default function Calendar() {
-  const { borrowers, tasks, seat, currentOfficer, openLoan, go, completeTask } = useApp()
+  const { borrowers, tasks, seat, currentOfficer, openLoan, go, completeTask, setFollowUp, retargetTask } = useApp()
   const today = d(0)
   const [month, setMonth] = useState(() => firstOfMonth(today))
   const [selected, setSelected] = useState(today)
+  const [scheduleOpen, setScheduleOpen] = useState(false)
+  const [moving, setMoving] = useState(null) // a followup/task event being rescheduled
+
+  const candidates = useMemo(
+    () => (seat === 'team' ? borrowers : borrowers.filter((b) => b.officerId === seat)).filter((b) => !isClosedOut(b)),
+    [borrowers, seat],
+  )
+
+  const dropOn = (iso) => {
+    if (!moving) return
+    if (moving.type === 'followup') setFollowUp(moving.borrowerId, iso)
+    else if (moving.type === 'task') retargetTask(moving.id.slice(1), iso)
+    setMoving(null)
+    setSelected(iso)
+  }
 
   const events = useMemo(() => calendarEvents(borrowers, tasks, seat), [borrowers, tasks, seat])
   const byDate = useMemo(() => {
@@ -117,9 +213,24 @@ export default function Calendar() {
         </div>
       </div>
 
+      {moving && (
+        <div className="animate-slidein mb-3 flex items-center gap-2.5 rounded-xl border border-navy-300/70 bg-navy-50 px-3 py-2 text-[13px] font-medium text-navy-900 dark:border-white/20 dark:bg-white/10 dark:text-white">
+          <Move className="h-4 w-4 shrink-0" />
+          <span className="min-w-0 flex-1 truncate">
+            Moving “{moving.title}” — tap the new day
+          </span>
+          <button
+            onClick={() => setMoving(null)}
+            className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-slate-500 transition-colors hover:bg-white hover:text-navy-900 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white"
+          >
+            <X className="h-3.5 w-3.5" /> Cancel
+          </button>
+        </div>
+      )}
+
       <div className="grid gap-4 xl:grid-cols-[1fr_20rem]">
         {/* ---------- month grid ---------- */}
-        <Card pad={false} className="overflow-hidden">
+        <Card pad={false} className={cx('overflow-hidden', moving && 'ring-2 ring-navy-400/50')}>
           <div className="grid grid-cols-7 border-b border-slate-100 dark:border-white/10">
             {DOW.map((w) => (
               <p key={w} className="py-2 text-center text-[11px] font-semibold uppercase tracking-wide text-slate-400">
@@ -138,8 +249,9 @@ export default function Calendar() {
               return (
                 <button
                   key={iso}
-                  onClick={() => setSelected(iso)}
+                  onClick={() => (moving ? dropOn(iso) : setSelected(iso))}
                   className={cx(
+                    moving && 'cursor-crosshair',
                     'relative flex min-h-[4.5rem] flex-col items-stretch gap-1 border-b border-r border-slate-100 p-1.5 text-left transition-colors sm:min-h-[5.5rem] dark:border-white/[0.06]',
                     (i + 1) % 7 === 0 && 'border-r-0',
                     i >= 35 && 'border-b-0',
@@ -189,6 +301,11 @@ export default function Calendar() {
           title={fmtDateFull(selected)}
           sub={selected === today ? 'Today' : relDate(selected)}
           pad={false}
+          action={
+            <Btn variant="soft" sm onClick={() => setScheduleOpen(true)} disabled={candidates.length === 0}>
+              <Plus className="h-3 w-3" /> Schedule
+            </Btn>
+          }
         >
           {selectedEvents.length === 0 ? (
             <EmptyState icon={CalendarDays} title="Nothing on this day" sub="Pick a day with colored chips to see its events." />
@@ -208,7 +325,7 @@ export default function Calendar() {
                         {CAL_TYPES[e.type].label} · {e.sub}
                         {past && <span className="ml-1 font-medium text-rose-600">· {-daysUntil(e.date)}d overdue</span>}
                       </p>
-                      <div className="mt-1.5 flex items-center gap-2">
+                      <div className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1">
                         {e.borrowerId && (
                           <button
                             onClick={() => openLoan(e.borrowerId)}
@@ -223,6 +340,14 @@ export default function Calendar() {
                             className="text-xs font-medium text-sage-700 transition-colors hover:text-sage-800"
                           >
                             Mark done ✓
+                          </button>
+                        )}
+                        {(e.type === 'followup' || e.type === 'task') && (
+                          <button
+                            onClick={() => setMoving(e)}
+                            className="flex items-center gap-1 text-xs font-medium text-slate-500 transition-colors hover:text-navy-900 dark:text-slate-400 dark:hover:text-white"
+                          >
+                            <Move className="h-3 w-3" /> Reschedule
                           </button>
                         )}
                       </div>
@@ -248,6 +373,15 @@ export default function Calendar() {
           </div>
         </Card>
       </div>
+
+      {scheduleOpen && (
+        <ScheduleModal
+          date={selected}
+          candidates={candidates}
+          seat={seat}
+          onClose={() => setScheduleOpen(false)}
+        />
+      )}
     </div>
   )
 }

@@ -30,8 +30,14 @@ function TaskCard({ t }) {
   const idx = TASK_STATUSES.indexOf(t.status)
   return (
     <div
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.setData('text/plain', t.id)
+        e.dataTransfer.effectAllowed = 'move'
+      }}
+      title="Drag to another column"
       className={cx(
-        'group rounded-lg border bg-white p-3 shadow-[0_1px_2px_rgba(16,24,40,0.04)] transition-shadow hover:shadow-[0_2px_6px_rgba(16,24,40,0.07)] dark:bg-navy-900',
+        'group cursor-grab rounded-lg border bg-white p-3 shadow-[0_1px_2px_rgba(16,24,40,0.04)] transition-shadow hover:shadow-[0_2px_6px_rgba(16,24,40,0.07)] active:cursor-grabbing dark:bg-navy-900',
         overdue ? 'border-rose-200 dark:border-rose-500/30' : 'border-slate-200/80 dark:border-white/10',
         t.status === 'Complete' && 'opacity-60',
       )}
@@ -88,9 +94,10 @@ function TaskCard({ t }) {
 }
 
 export default function Tasks() {
-  const { tasks, borrowers, addTask, seat, currentOfficer } = useApp()
+  const { tasks, borrowers, addTask, setTaskStatus, seat, currentOfficer, toast } = useApp()
   const [officer, setOfficer] = useState('All')
   const [open, setOpen] = useState(false)
+  const [dropCol, setDropCol] = useState(null) // column highlighted during drag
   const [form, setForm] = useState({
     title: '',
     borrowerId: borrowers[0]?.id,
@@ -156,7 +163,32 @@ export default function Tasks() {
         {TASK_STATUSES.map((col) => {
           const colTasks = visible.filter((t) => t.status === col)
           return (
-            <div key={col} className="rounded-xl border border-slate-200/60 bg-slate-50/80 p-2.5 dark:border-white/10 dark:bg-white/[0.03]">
+            <div
+              key={col}
+              onDragOver={(e) => {
+                e.preventDefault()
+                e.dataTransfer.dropEffect = 'move'
+                setDropCol(col)
+              }}
+              onDragLeave={(e) => {
+                if (!e.currentTarget.contains(e.relatedTarget)) setDropCol(null)
+              }}
+              onDrop={(e) => {
+                e.preventDefault()
+                const id = e.dataTransfer.getData('text/plain')
+                if (id) {
+                  setTaskStatus(id, col)
+                  if (col === 'Complete') toast('Task completed', '✅')
+                }
+                setDropCol(null)
+              }}
+              className={cx(
+                'rounded-xl border p-2.5 transition-colors dark:bg-white/[0.03]',
+                dropCol === col
+                  ? 'border-navy-400/70 bg-navy-50/70 dark:border-white/30 dark:bg-white/[0.07]'
+                  : 'border-slate-200/60 bg-slate-50/80 dark:border-white/10',
+              )}
+            >
               <div className="mb-2.5 flex items-center gap-2 px-1">
                 <span className={cx('h-1.5 w-1.5 rounded-full', COL_DOT[col])} />
                 <h3 className="text-xs font-semibold text-navy-950 dark:text-white">{col}</h3>
