@@ -42,12 +42,10 @@ import Inbox from './pages/Inbox.jsx'
 import Reports from './pages/Reports.jsx'
 import Calendar from './pages/Calendar.jsx'
 import Partners from './pages/Partners.jsx'
-import AgentPortal from './pages/AgentPortal.jsx'
 import Profile from './pages/Profile.jsx'
 import Integrations, { INTEGRATION_ICONS } from './pages/Integrations.jsx'
 import Settings from './pages/Settings.jsx'
 import Landing from './pages/Landing.jsx'
-import AgentShell from './AgentShell.jsx'
 
 const MS_CITIES = ['Brandon', 'Flowood', 'Jackson', 'Madison', 'Pearl', 'Ridgeland', 'Clinton']
 
@@ -61,7 +59,6 @@ const NAV_MAIN = [
   { page: 'reports', label: 'Reports', icon: BarChart3 },
 ]
 const NAV_CLIENT = [
-  { page: 'agentportal', label: 'Agent Portal', icon: Briefcase },
   { page: 'portal', label: 'Borrower Portal', icon: HeartHandshake },
   { page: 'apply', label: 'Apply Intake', icon: ClipboardList },
 ]
@@ -438,7 +435,6 @@ const PALETTE_PAGES = [
   ['inbox', 'Inbox'],
   ['tasks', 'Tasks'],
   ['reports', 'Reports'],
-  ['agentportal', 'Agent Portal'],
   ['apply', 'Apply Intake'],
   ['portal', 'Borrower Portal'],
   ['integrations', 'Integrations'],
@@ -868,7 +864,6 @@ function Shell() {
           {view.page === 'reports' && <Reports />}
           {view.page === 'calendar' && <Calendar />}
           {view.page === 'partners' && <Partners />}
-          {view.page === 'agentportal' && <AgentPortal key={view.id ?? 'default'} initialId={view.id} />}
           {view.page === 'profile' && <Profile key={view.id ?? 'me'} />}
           {view.page === 'portal' && <Portal key={view.id ?? 'default'} initialId={view.id} />}
           {view.page === 'apply' && <Apply />}
@@ -891,9 +886,8 @@ function Shell() {
 }
 
 function Root() {
-  const { signedIn, role } = useApp()
-  if (!signedIn) return <Landing />
-  return role === 'agent' ? <AgentShell /> : <Shell />
+  const { signedIn } = useApp()
+  return signedIn ? <Shell /> : <Landing />
 }
 
 export default function App() {

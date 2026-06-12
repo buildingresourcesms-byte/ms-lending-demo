@@ -67,28 +67,12 @@ export function AppProvider({ children }) {
 
   const setNotifPref = useCallback((key, val) => setNotifPrefs((p) => ({ ...p, [key]: val })), [])
 
-  /* ---------- auth (demo sign-in) & theme ----------
-     Two front doors: loan officers get the workspace; agent partners
-     get their own program (role 'agent' + agentSeat). */
-  const [role, setRole] = useState('lo')
-  const [agentSeat, setAgentSeat] = useState(null)
-
+  /* ---------- auth (demo sign-in) & theme ---------- */
   const signIn = useCallback((officerId) => {
-    setRole('lo')
     if (officerId) setSeatState(officerId)
     setSignedIn(true)
   }, [])
-  const signInAgent = useCallback((agentId) => {
-    setRole('agent')
-    setAgentSeat(agentId)
-    setSignedIn(true)
-    window.scrollTo({ top: 0 })
-  }, [])
-  const signOut = useCallback(() => {
-    setSignedIn(false)
-    setRole('lo')
-    setAgentSeat(null)
-  }, [])
+  const signOut = useCallback(() => setSignedIn(false), [])
   const toggleTheme = useCallback(
     () =>
       setTheme((t) => {
@@ -157,6 +141,29 @@ export function AppProvider({ children }) {
 
   const setCrm = useCallback((patch) => setCrmState((c) => ({ ...c, ...patch })), [])
 
+  /* ---------- Partner Link: connection to the separate AgentHQ app ----------
+     The whole pitch: you don't NEED both programs to work together —
+     but link them and everything flows by itself. Holly is linked
+     (the flawless path); Bree & Carl still work by phone and email. */
+  const [agentLinks, setAgentLinks] = useState({
+    holly: { status: 'connected', since: d(-30) },
+    bree: { status: 'none' },
+    carl: { status: 'none' },
+  })
+
+  const connectAgent = useCallback(
+    (agentId) => {
+      const agent = agentById(agentId)
+      setAgentLinks((m) => ({ ...m, [agentId]: { status: 'invited' } }))
+      toast(`Link invite sent to ${agent?.name ?? 'agent'}`, '📨')
+      setTimeout(() => {
+        setAgentLinks((m) => ({ ...m, [agentId]: { status: 'connected', since: d(0) } }))
+        toast(`${agent?.name?.split(' ')[0] ?? 'They'} accepted — you're linked 🎉`, '🔗')
+      }, 1800)
+    },
+    [toast],
+  )
+
   /* ---------- borrower mutations ---------- */
   const patchBorrower = useCallback((id, fn) => {
     setBorrowers((list) => list.map((b) => (b.id === id ? fn(b) : b)))
@@ -189,9 +196,10 @@ export function AppProvider({ children }) {
             nb = logEvent(nb, 'doc', 'Document request sent to borrower')
           }
           nb = logEvent(nb, 'status', next === 'Closed' ? 'Loan closed 🎉' : `Status moved: ${b.status} → ${next}`)
-          // partners never have to ask "any update?" — their portal & phone get it automatically
+          // linked partners never have to ask "any update?" — AgentHQ gets it automatically
           const agent = agentById(nb.agentId)
-          if (agent) nb = logEvent(nb, 'sms', `Auto-update sent to ${agent.name} (agent): ${next}`)
+          if (agent && agentLinks[agent.id]?.status === 'connected')
+            nb = logEvent(nb, 'sms', `Auto-update sent to ${agent.name} via AgentHQ link: ${next}`)
           toast(
             next === 'Closed'
               ? `${b.name} — loan closed! 🎉`
@@ -203,7 +211,7 @@ export function AppProvider({ children }) {
         }),
       )
     },
-    [toast],
+    [toast, agentLinks],
   )
 
   const setDocStatus = useCallback(
@@ -449,6 +457,8 @@ export function AppProvider({ children }) {
     logCommunication,
     agentIntros,
     logIntro,
+    agentLinks,
+    connectAgent,
     connections,
     connectIntegration,
     disconnectIntegration,
@@ -459,10 +469,7 @@ export function AppProvider({ children }) {
     setNotifPref,
     signedIn,
     signIn,
-    signInAgent,
     signOut,
-    role,
-    agentSeat,
     theme,
     toggleTheme,
     palette,

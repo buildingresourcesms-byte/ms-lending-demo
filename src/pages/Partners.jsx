@@ -28,6 +28,65 @@ import {
 import { PageHeader, Card, Badge, StatusBadge, Btn, Avatar, Field, EmptyState, inputCls, cx } from '../ui.jsx'
 import { Send } from 'lucide-react'
 
+/* ---------- Partner Link: connect this partner's AgentHQ ----------
+   Works either way — linking just removes the manual steps. */
+function ConnectionCard({ agent }) {
+  const { agentLinks, connectAgent, toast } = useApp()
+  const link = agentLinks[agent.id] ?? { status: 'none' }
+  const first = agent.name.split(' ')[0]
+
+  if (link.status === 'connected')
+    return (
+      <Card
+        title="AgentHQ link"
+        action={
+          <Badge cls="bg-sage-50 text-sage-700 ring-sage-600/20" dot="bg-sage-500">
+            Linked
+          </Badge>
+        }
+      >
+        <p className="text-xs leading-relaxed text-slate-500">
+          {first} runs AgentHQ, so everything flows by itself{link.since ? ` (since ${fmtDate(link.since)})` : ''}:
+        </p>
+        <ul className="mt-2.5 space-y-1.5">
+          {['Referrals land here instantly', 'Deal milestones push to them live', 'Reciprocity ledger stays in sync', 'Pre-approval letters, self-serve'].map((t) => (
+            <li key={t} className="flex items-start gap-2 text-[13px] text-slate-600 dark:text-slate-300">
+              <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-sage-600" strokeWidth={2.5} />
+              {t}
+            </li>
+          ))}
+        </ul>
+      </Card>
+    )
+
+  if (link.status === 'invited')
+    return (
+      <Card title="AgentHQ link">
+        <p className="flex items-center gap-2 text-[13px] text-slate-600 dark:text-slate-300">
+          <span className="h-2 w-2 animate-pulse rounded-full bg-amber-400" />
+          Invite sent — waiting on {first}…
+        </p>
+      </Card>
+    )
+
+  return (
+    <Card title="AgentHQ link">
+      <p className="text-xs leading-relaxed text-slate-500">
+        {first} doesn’t use AgentHQ yet — <span className="font-medium text-slate-600 dark:text-slate-300">and that’s fine</span>.
+        Everything here still works by phone and email. Linking just makes it automatic.
+      </p>
+      <div className="mt-3 flex flex-col gap-2">
+        <Btn variant="sage" sm onClick={() => connectAgent(agent.id)}>
+          <Link2 className="h-3.5 w-3.5" /> Connect to agent
+        </Btn>
+        <Btn variant="outline" sm onClick={() => toast(`Status update emailed to ${first} (manual — demo)`, '✉️')}>
+          Email a status update instead
+        </Btn>
+      </div>
+    </Card>
+  )
+}
+
 /* log a buyer intro you sent the agent — feeds their ledger live */
 function ReciprocityCard({ agent }) {
   const { agentIntros, logIntro, borrowers } = useApp()
@@ -79,7 +138,7 @@ function AgentAvatar({ agent, size = 'h-10 w-10 text-xs' }) {
 }
 
 export default function Partners() {
-  const { borrowers, seat, currentOfficer, openLoan, go, toast } = useApp()
+  const { borrowers, seat, currentOfficer, openLoan, agentLinks, toast } = useApp()
   const officer = currentOfficer ?? officerById('julene')
   const [selectedId, setSelectedId] = useState(AGENTS[0]?.id)
   const [copied, setCopied] = useState(null)
@@ -128,12 +187,7 @@ export default function Partners() {
     <div>
       <PageHeader
         title="Agent Partners"
-        sub="The realtors who send you business — and the live pipeline you share with them."
-        actions={
-          <Btn variant="outline" onClick={() => go('agentportal')}>
-            <Eye className="h-4 w-4" /> Preview their portal
-          </Btn>
-        }
+        sub="The realtors who send you business. Works with any agent — linking with AgentHQ just makes it flow by itself."
       />
 
       {/* network totals */}
@@ -177,9 +231,18 @@ export default function Partners() {
                   {agent.brokerage} · {agent.market}
                 </p>
               </div>
-              <Badge cls={tier.cls}>
-                {tier.chip} {tier.label.split(' ')[0]}
-              </Badge>
+              <span className="flex flex-col items-end gap-1">
+                <Badge cls={tier.cls}>
+                  {tier.chip} {tier.label.split(' ')[0]}
+                </Badge>
+                {agentLinks[agent.id]?.status === 'connected' ? (
+                  <span className="flex items-center gap-1 text-[10px] font-medium text-sage-700">
+                    <span className="h-1.5 w-1.5 rounded-full bg-sage-500" /> Linked
+                  </span>
+                ) : (
+                  <span className="text-[10px] text-slate-400">not linked</span>
+                )}
+              </span>
             </div>
             <div className="mt-3 grid grid-cols-3 gap-2 border-t border-slate-100 pt-3 text-center dark:border-white/10">
               <div>
@@ -234,6 +297,7 @@ export default function Partners() {
           </Card>
 
           <div className="space-y-4">
+            <ConnectionCard agent={selected.agent} />
             <ReciprocityCard agent={selected.agent} />
             <Card title="Reach out">
               <ul className="space-y-2.5 text-sm">
@@ -255,14 +319,6 @@ export default function Partners() {
                   {copied === selected.agent.id ? <Check className="h-3.5 w-3.5 text-sage-600" /> : <Copy className="h-3.5 w-3.5" />}
                 </Btn>
               </div>
-              <Btn
-                variant="soft"
-                sm
-                className="mt-3 w-full"
-                onClick={() => go('agentportal', { id: selected.agent.id })}
-              >
-                <Eye className="h-3.5 w-3.5" /> See {selected.agent.name.split(' ')[0]}’s portal
-              </Btn>
             </Card>
           </div>
         </div>
