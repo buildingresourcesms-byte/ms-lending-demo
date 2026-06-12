@@ -1,6 +1,7 @@
-import { ArrowRight, Users } from 'lucide-react'
+import { useState } from 'react'
+import { ArrowRight, Users, Briefcase, Landmark } from 'lucide-react'
 import { useApp } from '../store.jsx'
-import { OFFICERS, DISCLAIMER, timeOfDay, SKY } from '../data.js'
+import { OFFICERS, AGENTS, DISCLAIMER, timeOfDay, SKY } from '../data.js'
 import { BrandMark, Avatar, cx } from '../ui.jsx'
 
 function SignInRow({ o, onClick }) {
@@ -19,25 +20,27 @@ function SignInRow({ o, onClick }) {
   )
 }
 
-function SignInChip({ o, onClick }) {
+function AgentRow({ a, onClick }) {
   return (
     <button
       onClick={onClick}
-      className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-2 text-left transition-colors hover:bg-white/[0.07] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage-400/50"
+      className="group flex w-full items-center gap-3 rounded-xl border border-white/10 bg-white/[0.04] p-3 text-left transition-colors hover:border-white/20 hover:bg-white/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage-400/50"
     >
-      <span className={cx('grid h-7 w-7 shrink-0 place-items-center rounded-full text-[10px] font-semibold text-white', o.color)}>
-        {o.initials}
+      <span className={cx('grid h-10 w-10 shrink-0 place-items-center rounded-full text-xs font-semibold text-white ring-1 ring-white/20', a.color)}>
+        {a.initials}
       </span>
-      <span className="min-w-0">
-        <span className="block truncate text-xs font-medium text-white">{o.name.split(' ')[0]}</span>
-        <span className="block truncate text-[10px] text-navy-400">{o.role.split(' ')[0]}</span>
-      </span>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-semibold text-white">{a.name}</p>
+        <p className="truncate text-xs text-navy-300">{a.brokerage}</p>
+      </div>
+      <ArrowRight className="h-4 w-4 shrink-0 text-navy-400 transition-all group-hover:translate-x-0.5 group-hover:text-sage-300" />
     </button>
   )
 }
 
 export default function Landing() {
-  const { signIn } = useApp()
+  const { signIn, signInAgent } = useApp()
+  const [door, setDoor] = useState('agent') // agents are the headline act
   const featured = ['julene', 'michelle'].map((id) => OFFICERS.find((o) => o.id === id))
   const others = OFFICERS.filter((o) => !['julene', 'michelle'].includes(o.id))
   const accent = SKY[timeOfDay()].accent
@@ -52,35 +55,88 @@ export default function Landing() {
         {/* brand */}
         <div className="text-center">
           <BrandMark className="mx-auto h-14 w-14" />
-          <h1 className="font-display mt-4 text-2xl font-semibold text-white">MS Lending</h1>
-          <p className="text-sm text-navy-300">Loan Workspace</p>
-          <p className="mx-auto mt-3 max-w-xs text-[13px] leading-relaxed text-navy-200">
-            “We’re making getting a mortgage easier than ever before.”
+          <h1 className="font-display mt-4 text-2xl font-semibold text-white">MS Lending Partner OS</h1>
+          <p className="mx-auto mt-2 max-w-sm text-[13px] leading-relaxed text-navy-200">
+            One program, two sides — agents and loan officers working the same deals, live.
           </p>
         </div>
 
-        {/* sign-in card */}
-        <div className="mt-7 rounded-2xl border border-white/10 bg-white/5 p-4 shadow-[0_24px_60px_-12px_rgba(0,0,0,0.5)]">
-          <p className="px-1 pb-2 text-[11px] font-semibold uppercase tracking-wider text-navy-400">Sign in as</p>
-          <div className="space-y-2">
-            {featured.map((o) => (
-              <SignInRow key={o.id} o={o} onClick={() => signIn(o.id)} />
-            ))}
-          </div>
-
-          <p className="px-1 pb-2 pt-4 text-[11px] font-semibold uppercase tracking-wider text-navy-400">Team</p>
-          <div className="grid grid-cols-3 gap-2">
-            {others.map((o) => (
-              <SignInChip key={o.id} o={o} onClick={() => signIn(o.id)} />
-            ))}
-          </div>
-
+        {/* the two doors */}
+        <div className="mt-6 grid grid-cols-2 gap-2">
           <button
-            onClick={() => signIn('team')}
-            className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-[13px] font-medium text-navy-200 transition-colors hover:bg-white/5 hover:text-white"
+            onClick={() => setDoor('agent')}
+            className={cx(
+              'flex items-center justify-center gap-2 rounded-xl border px-3 py-3 text-sm font-semibold transition-colors',
+              door === 'agent'
+                ? 'border-sage-400/60 bg-sage-500/15 text-white'
+                : 'border-white/10 bg-white/[0.03] text-navy-300 hover:bg-white/[0.06] hover:text-white',
+            )}
           >
-            <Users className="h-3.5 w-3.5" /> View the whole team
+            <Briefcase className="h-4 w-4" /> I’m an Agent
           </button>
+          <button
+            onClick={() => setDoor('lo')}
+            className={cx(
+              'flex items-center justify-center gap-2 rounded-xl border px-3 py-3 text-sm font-semibold transition-colors',
+              door === 'lo'
+                ? 'border-sage-400/60 bg-sage-500/15 text-white'
+                : 'border-white/10 bg-white/[0.03] text-navy-300 hover:bg-white/[0.06] hover:text-white',
+            )}
+          >
+            <Landmark className="h-4 w-4" /> I’m a Loan Officer
+          </button>
+        </div>
+
+        {/* sign-in card */}
+        <div className="mt-3 rounded-2xl border border-white/10 bg-white/5 p-4 shadow-[0_24px_60px_-12px_rgba(0,0,0,0.5)]">
+          {door === 'agent' ? (
+            <>
+              <p className="px-1 pb-1 text-[11px] font-semibold uppercase tracking-wider text-navy-400">
+                Agent partners
+              </p>
+              <p className="px-1 pb-3 text-xs leading-relaxed text-navy-300">
+                Your buyers live, instant pre-approval letters, 30-second referrals — no training, nothing to learn.
+              </p>
+              <div className="space-y-2">
+                {AGENTS.map((a) => (
+                  <AgentRow key={a.id} a={a} onClick={() => signInAgent(a.id)} />
+                ))}
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="px-1 pb-2 text-[11px] font-semibold uppercase tracking-wider text-navy-400">Sign in as</p>
+              <div className="space-y-2">
+                {featured.map((o) => (
+                  <SignInRow key={o.id} o={o} onClick={() => signIn(o.id)} />
+                ))}
+              </div>
+              <p className="px-1 pb-2 pt-4 text-[11px] font-semibold uppercase tracking-wider text-navy-400">Team</p>
+              <div className="grid grid-cols-3 gap-2">
+                {others.map((o) => (
+                  <button
+                    key={o.id}
+                    onClick={() => signIn(o.id)}
+                    className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-2 text-left transition-colors hover:bg-white/[0.07] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage-400/50"
+                  >
+                    <span className={cx('grid h-7 w-7 shrink-0 place-items-center rounded-full text-[10px] font-semibold text-white', o.color)}>
+                      {o.initials}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block truncate text-xs font-medium text-white">{o.name.split(' ')[0]}</span>
+                      <span className="block truncate text-[10px] text-navy-400">{o.role.split(' ')[0]}</span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={() => signIn('team')}
+                className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-[13px] font-medium text-navy-200 transition-colors hover:bg-white/5 hover:text-white"
+              >
+                <Users className="h-3.5 w-3.5" /> View the whole team
+              </button>
+            </>
+          )}
         </div>
 
         <p className="mx-auto mt-5 max-w-xs text-center text-[10px] leading-relaxed text-navy-500">{DISCLAIMER}</p>

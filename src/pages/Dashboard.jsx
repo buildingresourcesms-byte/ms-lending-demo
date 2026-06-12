@@ -29,6 +29,8 @@ import {
   weekdayOf,
   calendarEvents,
   CAL_TYPES,
+  AGENTS,
+  agentDeals,
 } from '../data.js'
 import { Card, Stat, Btn, EmptyState, cx } from '../ui.jsx'
 import { PipelineBars, Donut, Sparkline } from '../charts.jsx'
@@ -72,6 +74,13 @@ export default function Dashboard() {
   const thisWeek = WEEKLY_LEADS[WEEKLY_LEADS.length - 1]
   const lastWeek = WEEKLY_LEADS[WEEKLY_LEADS.length - 2]
   const delta = Math.round(((thisWeek - lastWeek) / lastWeek) * 100)
+
+  /* agent-partner pulse — referrals are the lifeblood */
+  const partnerPulse = AGENTS.map((a) => {
+    const deals = agentDeals(borrowers, a.id)
+    return { a, active: deals.filter((b) => !isClosedOut(b)).length }
+  }).sort((x, z) => z.active - x.active)
+  const freshReferrals = mine.filter((b) => b.viaReferral && b.status === 'New Lead')
 
   /* next 7 days for the week-at-a-glance strip */
   const today = d(0)
@@ -199,6 +208,50 @@ export default function Dashboard() {
           <Sparkline values={WEEKLY_LEADS} className="mt-3 h-16 w-full" />
         </Card>
       </div>
+
+      {/* ---------- partner network pulse ---------- */}
+      <Card
+        title="Your agent partners"
+        sub="The referral network this whole program runs on"
+        action={
+          <button
+            onClick={() => go('partners')}
+            className="flex items-center gap-1 text-xs font-medium text-navy-600 transition-colors hover:text-navy-900 dark:text-slate-300 dark:hover:text-white"
+          >
+            Partners hub <ArrowRight className="h-3 w-3" />
+          </button>
+        }
+      >
+        {freshReferrals.length > 0 && (
+          <button
+            onClick={() => openLoan(freshReferrals[0].id)}
+            className="mb-3 flex w-full items-center gap-2 rounded-lg bg-sage-50 px-3 py-2 text-left text-xs font-medium text-sage-800 ring-1 ring-inset ring-sage-600/20 transition-colors hover:bg-sage-100/70 dark:bg-sage-500/15"
+          >
+            🤝 {freshReferrals.length} new referral{freshReferrals.length > 1 ? 's' : ''} waiting —{' '}
+            {freshReferrals.map((b) => b.name.split(' ')[0]).join(', ')} — call back fast, that’s the whole pitch
+          </button>
+        )}
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+          {partnerPulse.map(({ a, active }) => (
+            <button
+              key={a.id}
+              onClick={() => go('partners')}
+              className="flex items-center gap-2.5 rounded-xl border border-slate-200/80 p-2.5 text-left transition-colors hover:border-navy-300/70 hover:bg-slate-50/60 dark:border-white/10 dark:hover:bg-white/5"
+            >
+              <span className={cx('grid h-9 w-9 shrink-0 place-items-center rounded-full text-[11px] font-semibold text-white', a.color)}>
+                {a.initials}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[13px] font-medium text-navy-950 dark:text-white">{a.name}</span>
+                <span className="block truncate text-[11px] text-slate-400">{a.brokerage}</span>
+              </span>
+              <span className="shrink-0 rounded-md bg-navy-50 px-1.5 py-0.5 text-[11px] font-semibold text-navy-700 tabular-nums dark:bg-white/10 dark:text-white">
+                {active}
+              </span>
+            </button>
+          ))}
+        </div>
+      </Card>
 
       {/* ---------- your week (calendar strip) ---------- */}
       <Card

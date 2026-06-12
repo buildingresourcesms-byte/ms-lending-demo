@@ -47,6 +47,7 @@ import Profile from './pages/Profile.jsx'
 import Integrations, { INTEGRATION_ICONS } from './pages/Integrations.jsx'
 import Settings from './pages/Settings.jsx'
 import Landing from './pages/Landing.jsx'
+import AgentShell from './AgentShell.jsx'
 
 const MS_CITIES = ['Brandon', 'Flowood', 'Jackson', 'Madison', 'Pearl', 'Ridgeland', 'Clinton']
 
@@ -890,8 +891,9 @@ function Shell() {
 }
 
 function Root() {
-  const { signedIn } = useApp()
-  return signedIn ? <Shell /> : <Landing />
+  const { signedIn, role } = useApp()
+  if (!signedIn) return <Landing />
+  return role === 'agent' ? <AgentShell /> : <Shell />
 }
 
 export default function App() {

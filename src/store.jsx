@@ -66,12 +66,28 @@ export function AppProvider({ children }) {
 
   const setNotifPref = useCallback((key, val) => setNotifPrefs((p) => ({ ...p, [key]: val })), [])
 
-  /* ---------- auth (demo sign-in) & theme ---------- */
+  /* ---------- auth (demo sign-in) & theme ----------
+     Two front doors: loan officers get the workspace; agent partners
+     get their own program (role 'agent' + agentSeat). */
+  const [role, setRole] = useState('lo')
+  const [agentSeat, setAgentSeat] = useState(null)
+
   const signIn = useCallback((officerId) => {
+    setRole('lo')
     if (officerId) setSeatState(officerId)
     setSignedIn(true)
   }, [])
-  const signOut = useCallback(() => setSignedIn(false), [])
+  const signInAgent = useCallback((agentId) => {
+    setRole('agent')
+    setAgentSeat(agentId)
+    setSignedIn(true)
+    window.scrollTo({ top: 0 })
+  }, [])
+  const signOut = useCallback(() => {
+    setSignedIn(false)
+    setRole('lo')
+    setAgentSeat(null)
+  }, [])
   const toggleTheme = useCallback(
     () =>
       setTheme((t) => {
@@ -426,7 +442,10 @@ export function AppProvider({ children }) {
     setNotifPref,
     signedIn,
     signIn,
+    signInAgent,
     signOut,
+    role,
+    agentSeat,
     theme,
     toggleTheme,
     palette,
