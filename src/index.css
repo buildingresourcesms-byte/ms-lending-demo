@@ -34,6 +34,124 @@
   --color-sage-900: #1f3b29;
 }
 
+/* ============================================================
+   SELECTABLE THEMES — each re-tints the whole app by overriding
+   the navy (chrome/ink) and sage (accent) scales. Applied via
+   data-theme on <html>; "classic" is the :root default above.
+   ============================================================ */
+:root {
+  --app-bg: #f7f8fb;
+  --app-bg-dark: #0c111d;
+}
+
+/* 🍂 Fall — espresso brown + harvest orange, warm cream canvas */
+html[data-theme='fall'] {
+  --app-bg: #faf6f0;
+  --app-bg-dark: #171009;
+  --color-navy-50: #f9f3ec;
+  --color-navy-100: #f1e5d8;
+  --color-navy-200: #e2cdb8;
+  --color-navy-300: #cba888;
+  --color-navy-400: #b07f55;
+  --color-navy-500: #96603c;
+  --color-navy-600: #7d4e31;
+  --color-navy-700: #653f29;
+  --color-navy-800: #4d3020;
+  --color-navy-900: #3a2418;
+  --color-navy-950: #2b1a12;
+  --color-sage-50: #fdf3ea;
+  --color-sage-100: #fae3cd;
+  --color-sage-200: #f4c79c;
+  --color-sage-300: #eba564;
+  --color-sage-400: #df8439;
+  --color-sage-500: #cf6a1f;
+  --color-sage-600: #b25318;
+  --color-sage-700: #8f4117;
+  --color-sage-800: #743618;
+  --color-sage-900: #602e17;
+}
+
+/* 🌸 Magnolia — Mississippi evergreen + warm gold, cream canvas */
+html[data-theme='magnolia'] {
+  --app-bg: #f8f7f2;
+  --app-bg-dark: #0d1410;
+  --color-navy-50: #f3f8f5;
+  --color-navy-100: #e6f1ea;
+  --color-navy-200: #cbe0d4;
+  --color-navy-300: #a3c8b2;
+  --color-navy-400: #74ab8a;
+  --color-navy-500: #4f936c;
+  --color-navy-600: #3a7d58;
+  --color-navy-700: #2d6647;
+  --color-navy-800: #245038;
+  --color-navy-900: #1c3a2b;
+  --color-navy-950: #14291f;
+  --color-sage-50: #fbf7eb;
+  --color-sage-100: #f6edd2;
+  --color-sage-200: #ecdca6;
+  --color-sage-300: #dfc370;
+  --color-sage-400: #d0a945;
+  --color-sage-500: #bf9232;
+  --color-sage-600: #a37628;
+  --color-sage-700: #835d24;
+  --color-sage-800: #6c4d23;
+  --color-sage-900: #5a4020;
+}
+
+/* 🌊 Coastal — deep ocean teal + coral, airy canvas */
+html[data-theme='coastal'] {
+  --app-bg: #f4f9fa;
+  --app-bg-dark: #081418;
+  --color-navy-50: #f0f7fa;
+  --color-navy-100: #ddebf1;
+  --color-navy-200: #b9d4e0;
+  --color-navy-300: #87b4c6;
+  --color-navy-400: #5592ab;
+  --color-navy-500: #347795;
+  --color-navy-600: #27637e;
+  --color-navy-700: #1e5067;
+  --color-navy-800: #173f52;
+  --color-navy-900: #11303f;
+  --color-navy-950: #0c2430;
+  --color-sage-50: #fdf1ee;
+  --color-sage-100: #fbded7;
+  --color-sage-200: #f6bdaf;
+  --color-sage-300: #ee9480;
+  --color-sage-400: #e36a52;
+  --color-sage-500: #d14e34;
+  --color-sage-600: #b43c27;
+  --color-sage-700: #913022;
+  --color-sage-800: #772b21;
+  --color-sage-900: #63271f;
+}
+
+/* ❄️ Frost — cool indigo slate + icy teal, crisp canvas */
+html[data-theme='frost'] {
+  --app-bg: #f6f8fb;
+  --app-bg-dark: #0d1019;
+  --color-navy-50: #f4f6fa;
+  --color-navy-100: #e7eaf2;
+  --color-navy-200: #ccd3e2;
+  --color-navy-300: #a3aec8;
+  --color-navy-400: #7787ad;
+  --color-navy-500: #566795;
+  --color-navy-600: #44527e;
+  --color-navy-700: #364166;
+  --color-navy-800: #2a3350;
+  --color-navy-900: #20263d;
+  --color-navy-950: #171c2e;
+  --color-sage-50: #effafa;
+  --color-sage-100: #d7f1f1;
+  --color-sage-200: #ace1e3;
+  --color-sage-300: #79c8cd;
+  --color-sage-400: #4baab2;
+  --color-sage-500: #348e98;
+  --color-sage-600: #2b727d;
+  --color-sage-700: #275d66;
+  --color-sage-800: #254d55;
+  --color-sage-900: #224148;
+}
+
 html {
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
@@ -42,18 +160,21 @@ html {
 }
 
 body {
-  @apply bg-[#f7f8fb] text-slate-700 font-sans text-sm;
+  @apply text-slate-700 font-sans text-sm;
+  background-color: var(--app-bg);
+  transition: background-color 0.3s ease;
 }
 
 html.dark {
   color-scheme: dark;
 }
 html.dark body {
-  @apply bg-[#0c111d] text-slate-300;
+  @apply text-slate-300;
+  background-color: var(--app-bg-dark);
 }
 
 ::selection {
-  background: #cdd8ea;
+  background: var(--color-navy-200);
 }
 
 /* Clear, consistent keyboard-focus ring for accessibility.

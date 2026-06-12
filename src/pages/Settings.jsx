@@ -1,18 +1,21 @@
 import { useState } from 'react'
-import { Building2, MapPin, Phone, Mail, BadgeCheck, AlertTriangle, Palette } from 'lucide-react'
+import { Building2, MapPin, Phone, Mail, BadgeCheck, AlertTriangle, Check } from 'lucide-react'
 import { useApp } from '../store.jsx'
 import { OFFICERS, DISCLAIMER } from '../data.js'
 import { PageHeader, Card, Avatar, Toggle, BrandMark, Badge, cx } from '../ui.jsx'
 
-const SWATCHES = [
-  { name: 'Navy', cls: 'bg-navy-800' },
-  { name: 'Sage', cls: 'bg-sage-500' },
-  { name: 'Teal', cls: 'bg-teal-500' },
-  { name: 'Blue', cls: 'bg-blue-500' },
+/* selectable themes — preview colors are fixed hexes so every swatch
+   shows its own colors no matter which theme is active */
+const THEMES = [
+  { id: 'classic', emoji: '🏛️', name: 'Classic', ink: '#24314a', accent: '#478b5b', canvas: '#f7f8fb' },
+  { id: 'magnolia', emoji: '🌸', name: 'Magnolia', ink: '#1c3a2b', accent: '#bf9232', canvas: '#f8f7f2' },
+  { id: 'fall', emoji: '🍂', name: 'Fall', ink: '#3a2418', accent: '#cf6a1f', canvas: '#faf6f0' },
+  { id: 'coastal', emoji: '🌊', name: 'Coastal', ink: '#11303f', accent: '#d14e34', canvas: '#f4f9fa' },
+  { id: 'frost', emoji: '❄️', name: 'Frost', ink: '#20263d', accent: '#348e98', canvas: '#f6f8fb' },
 ]
 
 export default function Settings() {
-  const { toast, go, notifPrefs, setNotifPref, theme, toggleTheme } = useApp()
+  const { toast, go, notifPrefs, setNotifPref, theme, toggleTheme, palette, setPalette } = useApp()
 
   return (
     <div>
@@ -105,22 +108,46 @@ export default function Settings() {
             </div>
             <Toggle on={theme === 'dark'} onChange={() => toggleTheme()} />
           </div>
-          <div className="flex items-center gap-3">
-            {SWATCHES.map((s) => (
-              <button
-                key={s.name}
-                title={s.name}
-                onClick={() => toast('Theme colors are customizable in the full version', '🎨')}
-                className={cx(
-                  'h-10 w-10 rounded-full ring-2 ring-white shadow-md transition hover:scale-110',
-                  s.cls,
-                )}
-              />
-            ))}
-            <Palette className="ml-2 h-5 w-5 text-slate-300" />
+          <p className="mb-2.5 text-sm font-medium text-slate-700 dark:text-slate-200">Theme</p>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {THEMES.map((t) => {
+              const active = palette === t.id
+              return (
+                <button
+                  key={t.id}
+                  onClick={() => {
+                    setPalette(t.id)
+                    toast(`${t.name} theme on`, t.emoji)
+                  }}
+                  aria-pressed={active}
+                  className={cx(
+                    'rounded-xl border p-2 text-left transition-all duration-150 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-navy-500/40',
+                    active
+                      ? 'border-navy-800 ring-1 ring-navy-800 dark:border-white/60 dark:ring-white/60'
+                      : 'border-slate-200 hover:border-slate-300 dark:border-white/10 dark:hover:border-white/25',
+                  )}
+                >
+                  {/* mini preview */}
+                  <span
+                    className="flex h-9 items-center gap-1.5 rounded-lg px-2 ring-1 ring-black/[0.05]"
+                    style={{ backgroundColor: t.canvas }}
+                  >
+                    <span className="h-4 w-4 rounded-full" style={{ backgroundColor: t.ink }} />
+                    <span className="h-3 w-3 rounded-full" style={{ backgroundColor: t.accent }} />
+                    <span className="ml-auto h-1.5 w-7 rounded-full" style={{ backgroundColor: t.ink, opacity: 0.25 }} />
+                  </span>
+                  <span className="mt-1.5 flex items-center justify-between px-0.5">
+                    <span className="text-xs font-medium text-slate-700 dark:text-slate-200">
+                      {t.emoji} {t.name}
+                    </span>
+                    {active && <Check className="h-3.5 w-3.5 text-sage-600" strokeWidth={2.5} />}
+                  </span>
+                </button>
+              )
+            })}
           </div>
           <p className="mt-4 text-xs text-slate-400">
-            Logo, colors, and the borrower portal can all carry MS Lending’s branding.
+            Your pick is saved on this device — colors, sidebar, even the logo follow the theme.
           </p>
         </Card>
       </div>

@@ -47,6 +47,13 @@ export function AppProvider({ children }) {
   })
   const [signedIn, setSignedIn] = useState(false)
   const [theme, setTheme] = useState('light')
+  const [palette, setPaletteState] = useState(() => {
+    try {
+      return localStorage.getItem('msl-palette') ?? 'classic'
+    } catch {
+      return 'classic'
+    }
+  })
   const idSeq = useRef(100)
 
   const setNotifPref = useCallback((key, val) => setNotifPrefs((p) => ({ ...p, [key]: val })), [])
@@ -59,11 +66,26 @@ export function AppProvider({ children }) {
   const signOut = useCallback(() => setSignedIn(false), [])
   const toggleTheme = useCallback(() => setTheme((t) => (t === 'light' ? 'dark' : 'light')), [])
 
+  const setPalette = useCallback((id) => {
+    setPaletteState(id)
+    try {
+      localStorage.setItem('msl-palette', id)
+    } catch {
+      /* storage may be unavailable (private mode); theme still applies */
+    }
+  }, [])
+
   useEffect(() => {
     const root = document.documentElement
     if (theme === 'dark') root.classList.add('dark')
     else root.classList.remove('dark')
   }, [theme])
+
+  useEffect(() => {
+    const root = document.documentElement
+    if (palette === 'classic') delete root.dataset.theme
+    else root.dataset.theme = palette
+  }, [palette])
 
   const currentOfficer = seat === 'team' ? null : officerById(seat)
 
@@ -359,6 +381,8 @@ export function AppProvider({ children }) {
     signOut,
     theme,
     toggleTheme,
+    palette,
+    setPalette,
     nextActionLabel: (b) => NEXT_ACTION_LABEL[b.status],
   }
 

@@ -8,7 +8,7 @@ export const cx = (...a) => a.filter(Boolean).join(' ')
 export function BrandMark({ className = 'w-10 h-10' }) {
   return (
     <svg viewBox="0 0 48 48" className={className} aria-hidden="true">
-      <rect width="48" height="48" rx="11" fill="#24314a" />
+      <rect width="48" height="48" rx="11" fill="var(--color-navy-900, #24314a)" />
       <text
         x="24"
         y="29.5"
@@ -21,7 +21,7 @@ export function BrandMark({ className = 'w-10 h-10' }) {
       >
         MS
       </text>
-      <rect x="13" y="35" width="22" height="2.5" rx="1.25" fill="#69a87b" />
+      <rect x="13" y="35" width="22" height="2.5" rx="1.25" fill="var(--color-sage-400, #69a87b)" />
     </svg>
   )
 }
