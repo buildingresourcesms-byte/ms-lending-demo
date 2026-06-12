@@ -17,6 +17,7 @@ import {
   AGENTS,
   agentDeals,
   agentApplyLink,
+  agentTier,
   officerById,
   money,
   fmtDate,
@@ -24,7 +25,48 @@ import {
   isClosedOut,
   STATUS_STYLES,
 } from '../data.js'
-import { PageHeader, Card, Badge, StatusBadge, Btn, Avatar, EmptyState, cx } from '../ui.jsx'
+import { PageHeader, Card, Badge, StatusBadge, Btn, Avatar, Field, EmptyState, inputCls, cx } from '../ui.jsx'
+import { Send } from 'lucide-react'
+
+/* log a buyer intro you sent the agent — feeds their ledger live */
+function ReciprocityCard({ agent }) {
+  const { agentIntros, logIntro, borrowers } = useApp()
+  const [name, setName] = useState('')
+  const sent = agentDeals(borrowers, agent.id).length
+  const received = (agentIntros[agent.id] ?? []).length
+  const submit = (e) => {
+    e.preventDefault()
+    if (!name.trim()) return
+    logIntro(agent.id, name.trim(), 'Buyer intro')
+    setName('')
+  }
+  return (
+    <Card title="Reciprocity" sub="They see this scoreboard too — send business back.">
+      <div className="flex items-center justify-around text-center">
+        <div>
+          <p className="text-xl font-semibold text-navy-950 tabular-nums dark:text-white">{sent}</p>
+          <p className="text-[10px] text-slate-400">they sent you</p>
+        </div>
+        <span className="text-slate-300">·</span>
+        <div>
+          <p className="text-xl font-semibold text-sage-700 tabular-nums">{received}</p>
+          <p className="text-[10px] text-slate-400">you sent them</p>
+        </div>
+      </div>
+      <form onSubmit={submit} className="mt-3 flex gap-2">
+        <input
+          className={inputCls}
+          placeholder="Buyer you introduced…"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
+        <Btn variant="soft" sm type="submit" disabled={!name.trim()} className="h-9 shrink-0">
+          <Send className="h-3.5 w-3.5" /> Log
+        </Btn>
+      </form>
+    </Card>
+  )
+}
 
 const fmtK = (n) => (n >= 1000 ? '$' + Math.round(n / 1000) + 'K' : money(n))
 
@@ -53,6 +95,7 @@ export default function Partners() {
           deals,
           active,
           closed,
+          tier: agentTier(borrowers, a.id),
           activeVolume: active.reduce((s, b) => s + b.amount, 0),
           closedVolume: closed.reduce((s, b) => s + b.amount, 0),
         }
@@ -115,7 +158,7 @@ export default function Partners() {
 
       {/* partner cards */}
       <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        {partnerStats.map(({ agent, active, closed, closedVolume }) => (
+        {partnerStats.map(({ agent, active, closed, closedVolume, tier }) => (
           <button
             key={agent.id}
             onClick={() => setSelectedId(agent.id)}
@@ -134,8 +177,8 @@ export default function Partners() {
                   {agent.brokerage} · {agent.market}
                 </p>
               </div>
-              <Badge cls="bg-slate-50 text-slate-500 ring-slate-400/30 dark:bg-white/5 dark:text-slate-400">
-                since {agent.since}
+              <Badge cls={tier.cls}>
+                {tier.chip} {tier.label.split(' ')[0]}
               </Badge>
             </div>
             <div className="mt-3 grid grid-cols-3 gap-2 border-t border-slate-100 pt-3 text-center dark:border-white/10">
@@ -191,6 +234,7 @@ export default function Partners() {
           </Card>
 
           <div className="space-y-4">
+            <ReciprocityCard agent={selected.agent} />
             <Card title="Reach out">
               <ul className="space-y-2.5 text-sm">
                 <li className="flex items-center gap-2.5 text-slate-600 dark:text-slate-300">

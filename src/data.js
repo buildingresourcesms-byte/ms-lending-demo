@@ -362,6 +362,50 @@ export const agentById = (id) => AGENTS.find((a) => a.id === id) ?? null
 /* deals attributed to an agent (their buyers financed with us) */
 export const agentDeals = (borrowers, agentId) => borrowers.filter((b) => b.agentId === agentId)
 
+/* ---------- partner tiers — status worth defending ---------- */
+export const TIERS = {
+  gold: {
+    label: 'Gold Partner',
+    cls: 'bg-amber-50 text-amber-700 ring-amber-600/30',
+    chip: '🥇',
+    min: 1000000,
+    perks: ['Priority underwriting queue', 'Weekend letter desk', 'Co-marketing budget', 'Same-hour referral callback'],
+  },
+  silver: {
+    label: 'Silver Partner',
+    cls: 'bg-slate-100 text-slate-600 ring-slate-400/40',
+    chip: '🥈',
+    min: 400000,
+    perks: ['Priority underwriting queue', 'Same-day referral callback'],
+  },
+  bronze: {
+    label: 'Bronze Partner',
+    cls: 'bg-orange-50 text-orange-700 ring-orange-600/25',
+    chip: '🥉',
+    min: 0,
+    perks: ['Live buyer tracking', 'Next-day referral callback'],
+  },
+}
+
+/* tier = total attributed volume (active + closed) with MS Lending */
+export const agentTier = (borrowers, agentId) => {
+  const volume = agentDeals(borrowers, agentId).reduce((s, b) => s + b.amount, 0)
+  const id = volume >= TIERS.gold.min ? 'gold' : volume >= TIERS.silver.min ? 'silver' : 'bronze'
+  const next = id === 'gold' ? null : id === 'silver' ? 'gold' : 'silver'
+  return { id, ...TIERS[id], volume, next, toNext: next ? TIERS[next].min - volume : 0 }
+}
+
+/* buyer intros WE sent the agent — the other half of the ledger.
+   (LO Ninja never shows agents a balanced two-way scoreboard.) */
+export const SEED_AGENT_INTROS = {
+  holly: [
+    { name: 'Monica H.', date: d(-21), note: 'Pre-approved buyer, needed an agent in Madison' },
+    { name: 'Greg T.', date: d(-9), note: 'Relocation buyer — touring this weekend' },
+  ],
+  bree: [{ name: 'Alisha P.', date: d(-15), note: 'First-time buyer, Brandon schools' }],
+  carl: [{ name: 'Devon M.', date: d(-30), note: 'Investor — two rentals in Pearl' }],
+}
+
 /* co-branded apply link: the agent shares it, the LO gets the lead,
    the agent gets the credit */
 export const agentApplyLink = (officer, agent) => `${APPLY_BASE}/${officer.id}/${agent.id}`

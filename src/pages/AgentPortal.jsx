@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import QRCode from 'react-qr-code'
 import {
   Eye,
   Phone,
@@ -10,6 +11,9 @@ import {
   Link2,
   Sparkles,
   CalendarDays,
+  Trophy,
+  ArrowLeftRight,
+  Activity,
 } from 'lucide-react'
 import { useApp } from '../store.jsx'
 import {
@@ -17,6 +21,8 @@ import {
   agentById,
   agentDeals,
   agentApplyLink,
+  agentTier,
+  TIERS,
   officerById,
   PORTAL_STAGES,
   portalStageIndex,
@@ -316,6 +322,129 @@ export function LetterGenerator({ deals, officer, toast }) {
   )
 }
 
+/* tier status + perks — status worth defending */
+export function TierCard({ borrowers, agent }) {
+  const tier = agentTier(borrowers, agent.id)
+  const pctToNext = tier.next ? Math.min(100, Math.round((tier.volume / TIERS[tier.next].min) * 100)) : 100
+  return (
+    <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200/70">
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="flex items-center gap-1.5 text-sm font-semibold text-navy-900">
+          <Trophy className="h-4 w-4 text-amber-500" /> Your partner status
+        </h2>
+        <Badge cls={tier.cls}>
+          {tier.chip} {tier.label}
+        </Badge>
+      </div>
+      <p className="mt-1 text-xs text-slate-500">{money(tier.volume)} in deals together, all time.</p>
+      <ul className="mt-3 space-y-1.5">
+        {tier.perks.map((p) => (
+          <li key={p} className="flex items-start gap-2 text-[13px] text-slate-600">
+            <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-sage-600" strokeWidth={2.5} />
+            {p}
+          </li>
+        ))}
+      </ul>
+      {tier.next && (
+        <div className="mt-4">
+          <div className="mb-1 flex items-center justify-between text-[11px] text-slate-400">
+            <span>
+              {money(tier.toNext)} more closed volume to {TIERS[tier.next].chip} {TIERS[tier.next].label}
+            </span>
+            <span className="tabular-nums">{pctToNext}%</span>
+          </div>
+          <ProgressBar pct={pctToNext} tone="bg-amber-400" />
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* the two-way scoreboard — nobody else shows agents a balanced ledger */
+export function ReciprocityLedger({ agent, officer, deals }) {
+  const { agentIntros } = useApp()
+  const sent = deals.length
+  const received = (agentIntros[agent.id] ?? []).length
+  const diff = sent - received
+  const first = officer.name.split(' ')[0]
+  return (
+    <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200/70">
+      <h2 className="flex items-center gap-1.5 text-sm font-semibold text-navy-900">
+        <ArrowLeftRight className="h-4 w-4 text-navy-500" /> The two-way street
+      </h2>
+      <p className="mt-1 text-xs text-slate-500">Referrals go both directions here — and we keep score in the open.</p>
+      <div className="mt-4 grid grid-cols-2 gap-3">
+        <div className="rounded-2xl bg-navy-50/70 p-3.5 text-center ring-1 ring-navy-100">
+          <p className="text-2xl font-semibold text-navy-900 tabular-nums">{sent}</p>
+          <p className="mt-0.5 text-[11px] text-slate-500">buyers you’ve brought us</p>
+        </div>
+        <div className="rounded-2xl bg-sage-50/70 p-3.5 text-center ring-1 ring-sage-100">
+          <p className="text-2xl font-semibold text-sage-800 tabular-nums">{received}</p>
+          <p className="mt-0.5 text-[11px] text-slate-500">buyers {first} sent you</p>
+        </div>
+      </div>
+      <p className="mt-3 text-center text-xs font-medium text-slate-500">
+        {diff > 0
+          ? `You’re up ${diff} — ${first} owes you a coffee ☕`
+          : diff < 0
+            ? `${first}’s up ${-diff} — your move 😄`
+            : 'Dead even — a real partnership.'}
+      </p>
+      {(agentIntros[agent.id] ?? []).length > 0 && (
+        <ul className="mt-4 space-y-2 border-t border-slate-100 pt-3">
+          {(agentIntros[agent.id] ?? []).slice(0, 4).map((i, idx) => (
+            <li key={idx} className="flex items-start gap-2.5 text-[13px]">
+              <span className="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full bg-sage-100 text-sage-700">
+                <Send className="h-3 w-3" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="font-medium text-navy-900">{i.name}</p>
+                <p className="truncate text-xs text-slate-400">
+                  {i.note || 'Buyer intro'} · {relDate(i.date)}
+                </p>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
+/* auto-pushed milestone feed for this agent's deals */
+export function ActivityFeed({ deals }) {
+  const events = deals
+    .flatMap((b) =>
+      b.timeline
+        .filter((e) => ['status', 'doc', 'apply', 'created'].includes(e.type))
+        .map((e) => ({ ...e, buyer: b.name.split(' ')[0] })),
+    )
+    .sort((a, z) => (a.date < z.date ? 1 : -1))
+    .slice(0, 6)
+  if (events.length === 0) return null
+  return (
+    <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200/70">
+      <h2 className="flex items-center gap-1.5 text-sm font-semibold text-navy-900">
+        <Activity className="h-4 w-4 text-sage-600" /> Pushed to you automatically
+      </h2>
+      <p className="mt-1 text-xs text-slate-500">Every milestone, the moment it happens — so you never have to ask.</p>
+      <ul className="mt-4 space-y-2.5">
+        {events.map((e, i) => (
+          <li key={i} className="flex items-start gap-2.5 text-[13px]">
+            <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-sage-500" />
+            <div className="min-w-0 flex-1">
+              <p className="text-slate-700">
+                <span className="font-medium text-navy-900">{e.buyer}:</span> {e.text}
+              </p>
+              <p className="text-xs text-slate-400">{relDate(e.date)}</p>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
 export function LinkCard({ agent, officer, toast }) {
   const [copied, setCopied] = useState(false)
   const link = agentApplyLink(officer, agent)
@@ -342,6 +471,18 @@ export function LinkCard({ agent, officer, toast }) {
           {copied ? <Check className="h-3.5 w-3.5 text-sage-600" /> : <Copy className="h-3.5 w-3.5" />}
           {copied ? 'Copied' : 'Copy'}
         </Btn>
+      </div>
+      <div className="mt-4 flex items-center gap-4 rounded-xl border border-slate-200 bg-white p-4">
+        <div className="shrink-0 rounded-lg bg-white p-1.5 ring-1 ring-slate-200">
+          <QRCode value={'https://' + link} size={88} fgColor="#161f33" />
+        </div>
+        <div className="min-w-0">
+          <p className="text-[13px] font-semibold text-navy-900">Open-house ready</p>
+          <p className="mt-1 text-xs leading-relaxed text-slate-500">
+            Print this QR on flyers and sign-in sheets — buyers scan, apply, and land in your tracker with your
+            name on the file.
+          </p>
+        </div>
       </div>
     </div>
   )
@@ -374,7 +515,13 @@ export function LenderCard({ officer, toast }) {
           <Mail className="h-4 w-4" /> Email
         </button>
       </div>
-      <p className="mt-4 text-center text-xs text-navy-200">
+      <div className="mt-4 flex items-center justify-center gap-2 rounded-xl bg-white/10 px-3 py-2 ring-1 ring-white/15">
+        <ShieldCheck className="h-4 w-4 shrink-0 text-sage-300" />
+        <p className="text-xs font-medium text-white">
+          97% on-time closings <span className="font-normal text-navy-200">· last 30 loans (sample stat)</span>
+        </p>
+      </div>
+      <p className="mt-3 text-center text-xs text-navy-200">
         Your buyers close on time — or you hear from me before anyone has to ask.
       </p>
     </div>
@@ -431,8 +578,11 @@ export default function AgentPortal({ initialId }) {
         <AgentCobrandHeader agent={agent} />
         <AgentStatsHero agent={agent} deals={deals} />
         <BuyerTracker deals={deals} />
+        <ActivityFeed deals={deals} />
         <ReferralCard agent={agent} officer={officer} />
+        <ReciprocityLedger agent={agent} officer={officer} deals={deals} />
         <LetterGenerator deals={deals} officer={officer} toast={toast} />
+        <TierCard borrowers={borrowers} agent={agent} />
         <LinkCard agent={agent} officer={officer} toast={toast} />
         <LenderCard officer={officer} toast={toast} />
         <div className="space-y-1.5 pb-4 pt-2 text-center">

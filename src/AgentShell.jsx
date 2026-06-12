@@ -9,13 +9,16 @@ import {
   Sparkles,
 } from 'lucide-react'
 import { useApp } from './store.jsx'
-import { agentById, agentDeals, officerById, AGENTS, DISCLAIMER, isClosedOut } from './data.js'
+import { agentById, agentDeals, agentTier, officerById, AGENTS, DISCLAIMER, isClosedOut } from './data.js'
 import { BrandMark, cx } from './ui.jsx'
 import {
   AgentStatsHero,
   BuyerTracker,
   ReferralCard,
   ReferralLedger,
+  ReciprocityLedger,
+  ActivityFeed,
+  TierCard,
   LetterGenerator,
   LinkCard,
   LenderCard,
@@ -38,6 +41,7 @@ export default function AgentShell() {
   const [tab, setTab] = useState('buyers')
   const deals = useMemo(() => agentDeals(borrowers, agent.id), [borrowers, agent.id])
   const activeCount = deals.filter((b) => !isClosedOut(b)).length
+  const tier = agentTier(borrowers, agent.id)
 
   return (
     <div className="min-h-screen">
@@ -50,8 +54,10 @@ export default function AgentShell() {
             {agent.initials}
           </span>
           <div className="min-w-0">
-            <p className="truncate text-[13px] font-semibold leading-4 text-white">{agent.name}</p>
-            <p className="truncate text-[11px] leading-4 text-navy-400">{agent.brokerage} · Partner Portal</p>
+            <p className="truncate text-[13px] font-semibold leading-4 text-white">
+              {agent.name} <span className="ml-1 text-[11px] font-normal">{tier.chip}</span>
+            </p>
+            <p className="truncate text-[11px] leading-4 text-navy-400">{agent.brokerage} · {tier.label}</p>
           </div>
           <button
             onClick={signOut}
@@ -92,18 +98,24 @@ export default function AgentShell() {
           <>
             <AgentStatsHero agent={agent} deals={deals} />
             <BuyerTracker deals={deals} />
-            <ReferralLedger deals={deals} />
+            <ActivityFeed deals={deals} />
           </>
         )}
         {tab === 'refer' && (
           <>
             <ReferralCard agent={agent} officer={officer} />
+            <ReciprocityLedger agent={agent} officer={officer} deals={deals} />
             <ReferralLedger deals={deals} />
           </>
         )}
         {tab === 'letters' && <LetterGenerator deals={deals} officer={officer} toast={toast} />}
         {tab === 'link' && <LinkCard agent={agent} officer={officer} toast={toast} />}
-        {tab === 'lender' && <LenderCard officer={officer} toast={toast} />}
+        {tab === 'lender' && (
+          <>
+            <TierCard borrowers={borrowers} agent={agent} />
+            <LenderCard officer={officer} toast={toast} />
+          </>
+        )}
 
         <div className="space-y-1.5 pb-2 pt-2 text-center">
           <p className="flex items-center justify-center gap-1.5 text-xs text-slate-400">

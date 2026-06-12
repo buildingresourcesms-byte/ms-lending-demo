@@ -3,6 +3,7 @@ import {
   SEED_BORROWERS,
   SEED_TASKS,
   SEED_CONNECTIONS,
+  SEED_AGENT_INTROS,
   STATUSES,
   NEXT_ACTION_LABEL,
   TASK_STATUSES,
@@ -367,6 +368,20 @@ export function AppProvider({ children }) {
     [patchBorrower, toast],
   )
 
+  /* ---------- reciprocity: buyer intros sent TO agents ---------- */
+  const [agentIntros, setAgentIntros] = useState(SEED_AGENT_INTROS)
+
+  const logIntro = useCallback(
+    (agentId, name, note = '') => {
+      setAgentIntros((m) => ({
+        ...m,
+        [agentId]: [{ name, date: d(0), note }, ...(m[agentId] ?? [])],
+      }))
+      toast(`Intro logged — they'll see it on their ledger`, '🤝')
+    },
+    [toast],
+  )
+
   /* ---------- integrations ---------- */
   const connectIntegration = useCallback(
     (id, account, name) => {
@@ -432,6 +447,8 @@ export function AppProvider({ children }) {
     retargetTask,
     celebrate,
     logCommunication,
+    agentIntros,
+    logIntro,
     connections,
     connectIntegration,
     disconnectIntegration,
