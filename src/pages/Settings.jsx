@@ -31,8 +31,9 @@ function EmailSetupCard() {
     try {
       await sendTestEmail({ ...form, serviceId: form.serviceId.trim(), templateId: form.templateId.trim(), publicKey: form.publicKey.trim() })
       toast('Test email sent — check your inbox ✓', '📧')
-    } catch {
-      toast('Test failed — double-check your 3 IDs', '⚠️')
+    } catch (err) {
+      const reason = err?.text || err?.message || 'check your 3 IDs and template'
+      toast(`Test failed: ${reason}`, '⚠️')
     } finally {
       setTesting(false)
     }
@@ -51,20 +52,29 @@ function EmailSetupCard() {
       }
     >
       {!emailReady && (
-        <ol className="mb-4 space-y-1.5 rounded-lg bg-slate-50/60 p-3 text-xs leading-relaxed text-slate-500 dark:bg-white/5">
+        <ol className="mb-4 space-y-2 rounded-lg bg-slate-50/60 p-3 text-xs leading-relaxed text-slate-500 dark:bg-white/5">
           <li>
             1. Make a free account at{' '}
-            <a href="https://www.emailjs.com" target="_blank" rel="noreferrer" className="inline-flex items-center gap-0.5 font-medium text-navy-600 underline dark:text-slate-200">
+            <a href="https://dashboard.emailjs.com/sign-up" target="_blank" rel="noreferrer" className="inline-flex items-center gap-0.5 font-medium text-navy-600 underline dark:text-slate-200">
               emailjs.com <ExternalLink className="h-3 w-3" />
             </a>{' '}
-            and connect your Gmail or Outlook.
+            → <span className="font-medium">Email Services → Add New Service</span> → connect your Gmail/Outlook.
           </li>
           <li>
-            2. Create an email template using these exact variables:
-            <br />
-            <span className="font-mono text-[11px] text-slate-600 dark:text-slate-300">{'{{to_name}} {{to_email}} {{subject}} {{message}} {{from_name}} {{reply_to}}'}</span>
+            2. <span className="font-medium">Email Templates → Create New Template</span>. In the template’s
+            <span className="font-medium"> Settings</span> tab, set these fields exactly (this is the part everyone
+            misses):
+            <div className="mt-1 rounded-md bg-white p-2 font-mono text-[11px] text-slate-600 ring-1 ring-slate-200 dark:bg-navy-950 dark:text-slate-300 dark:ring-white/10">
+              To Email = {'{{to_email}}'}<br />
+              From Name = {'{{from_name}}'}<br />
+              Reply To = {'{{reply_to}}'}<br />
+              Subject = {'{{subject}}'}
+            </div>
+            <span className="mt-1 block">…and put <span className="font-mono">{'{{message}}'}</span> in the Content box. Save.</span>
           </li>
-          <li>3. Copy your Service ID, Template ID, and Public Key in below.</li>
+          <li>
+            3. Copy <span className="font-medium">Service ID</span> (Email Services), <span className="font-medium">Template ID</span> (Email Templates), and your <span className="font-medium">Public Key</span> (Account → General) into the boxes below → Save → Send test.
+          </li>
         </ol>
       )}
       <div className="grid gap-3 sm:grid-cols-2">
