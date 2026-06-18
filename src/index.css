@@ -271,6 +271,15 @@ html.dark body {
   animation: confetti-fall var(--confetti-dur, 2.2s) ease-in var(--confetti-delay, 0s) both;
 }
 
+/* inbox typing indicator */
+@keyframes typing {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+  30% { transform: translateY(-3px); opacity: 1; }
+}
+.animate-typing {
+  animation: typing 1s ease-in-out infinite;
+}
+
 /* Respect users who prefer reduced motion (Quick Ref §1 / §7) */
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }

@@ -5,7 +5,6 @@ import {
   Eye,
   Phone,
   Mail,
-  MessageSquare,
   MapPin,
   Building2,
   AlarmClock,
@@ -13,18 +12,14 @@ import {
   FileText,
   Send,
   Plus,
-  Plug,
-  ShieldCheck,
   StickyNote,
   CalendarDays,
   Check,
-  Lock,
   Users,
 } from 'lucide-react'
 import { useApp } from '../store.jsx'
 import {
   officerById,
-  agentById,
   OFFICERS,
   money,
   fmtDate,
@@ -38,8 +33,6 @@ import {
   missingDocs,
   docProgress,
   monthlyPayment,
-  rateLockStatus,
-  slaStatus,
   NEXT_STEP,
   DOC_STATUSES,
   DOC_STYLES,
@@ -57,8 +50,6 @@ import {
   KV,
   EmptyState,
   PriorityBadge,
-  Modal,
-  DropZone,
   inputCls,
   Field,
   cx,
@@ -67,207 +58,12 @@ import { Timeline } from '../events.jsx'
 
 const TABS = ['Overview', 'Borrower Info', 'Loan Details', 'Documents', 'Tasks', 'Notes', 'Timeline']
 
-/* stages where sending the online application still makes sense */
-const APPLY_STAGES = ['New Lead', 'Contacted', 'Application Started']
-
 const creditTier = (s) =>
   !s ? '—' : s >= 740 ? 'Excellent' : s >= 700 ? 'Very good' : s >= 660 ? 'Good' : s >= 620 ? 'Fair' : 'Needs work'
 
-/* ---------- borrower communication channels ---------- */
-const PROVIDER_NAMES = {
-  dialer: 'Phone Dialer',
-  sms: 'Text Messaging',
-  whatsapp: 'WhatsApp',
-  gmail: 'Gmail',
-  outlook: 'Outlook',
-}
-
-export const CHANNELS = {
-  call: { label: 'Call', icon: Phone, providers: ['dialer'], field: 'phone' },
-  sms: { label: 'Text', icon: MessageSquare, providers: ['sms', 'whatsapp'], field: 'phone' },
-  email: { label: 'Email', icon: Mail, providers: ['gmail', 'outlook'], field: 'email' },
-}
-
-/* which connected integration powers a channel (if any) */
-export const channelProvider = (channel, connections) => {
-  const id = CHANNELS[channel].providers.find((p) => connections[p])
-  return id ? { id, name: PROVIDER_NAMES[id], account: connections[id].account } : null
-}
-
-const textareaCls =
-  'w-full rounded-lg border border-slate-300/70 bg-white px-2.5 py-2 text-[13px] leading-relaxed text-slate-700 transition-colors placeholder:text-slate-400 hover:border-slate-400/80 focus:border-navy-500 focus:outline-none focus:ring-2 focus:ring-navy-500/15 resize-none'
-
-const defaultBody = (channel, b, officer) => {
-  const first = b.name.split(' ')[0]
-  const offFirst = officer.name.split(' ')[0]
-  if (channel === 'email')
-    return `Hi ${first},\n\nQuick update on your ${b.loanType} loan with MS Lending — your file is currently at "${b.status}". ${NEXT_STEP[b.status]}\n\nReply here anytime if you have any questions. Happy to help.\n\nThank you,\n${officer.name}\nMS Lending`
-  if (channel === 'sms')
-    return `Hi ${first}, it's ${offFirst} at MS Lending — quick update on your loan: ${NEXT_STEP[b.status].toLowerCase()}. Text me back anytime!`
-  return ''
-}
-
-/* ---------- the Call / Text / Email action bar ---------- */
-function ContactBar({ b, connections, onPick }) {
-  return (
-    <div className="mb-5 flex flex-wrap items-center gap-2 rounded-xl border border-slate-200/80 bg-white px-3 py-2.5 shadow-[0_1px_2px_rgba(16,24,40,0.04)] dark:border-white/10 dark:bg-navy-900">
-      <span className="mr-1 text-xs font-medium text-slate-400">Reach out</span>
-      {Object.entries(CHANNELS).map(([key, c]) => {
-        const prov = channelProvider(key, connections)
-        const Icon = c.icon
-        return (
-          <button
-            key={key}
-            onClick={() => onPick(key)}
-            title={prov ? `${c.label} via ${prov.name}` : `Connect a provider to ${c.label.toLowerCase()}`}
-            className={cx(
-              'inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-[13px] font-medium transition-all duration-150 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-navy-500/40',
-              prov
-                ? 'border-slate-300/80 bg-white text-slate-700 shadow-[0_1px_1px_rgba(16,24,40,0.04)] hover:border-slate-400/80 hover:text-navy-900'
-                : 'border-dashed border-slate-300 bg-slate-50/40 text-slate-400 hover:text-slate-600',
-            )}
-          >
-            <Icon className="h-4 w-4" strokeWidth={1.75} />
-            {c.label}
-            {prov ? (
-              <span className="h-1.5 w-1.5 rounded-full bg-sage-500" />
-            ) : (
-              <Plug className="h-3 w-3 opacity-60" />
-            )}
-          </button>
-        )
-      })}
-      <span className="ml-auto hidden text-xs text-slate-400 sm:block">
-        {b.lastContact ? `Last contact ${relDate(b.lastContact)}` : 'No contact logged yet'}
-      </span>
-    </div>
-  )
-}
-
-/* ---------- compose / log modal (adapts per channel) ---------- */
-export function ComposeModal({ b, channel, connections, officer, onClose }) {
-  const { logCommunication, sendMessage, go } = useApp()
-  const c = CHANNELS[channel]
-  const prov = channelProvider(channel, connections)
-  const first = b.name.split(' ')[0]
-  const Icon = c.icon
-  const [subject, setSubject] = useState(`Your ${b.loanType} loan with MS Lending`)
-  const [body, setBody] = useState(() => defaultBody(channel, b, officer))
-  const [note, setNote] = useState('')
-
-  /* not connected → prompt to connect */
-  if (!prov) {
-    return (
-      <Modal
-        open
-        onClose={onClose}
-        title={`Connect to ${c.label.toLowerCase()} ${first}`}
-        sub="This channel isn’t connected yet."
-      >
-        <div className="flex items-start gap-3 rounded-xl border border-amber-200/70 bg-amber-50 p-3.5">
-          <Plug className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
-          <p className="text-[13px] leading-relaxed text-amber-800">
-            To {c.label.toLowerCase()} borrowers right from their file, connect one of these in Integrations:{' '}
-            <span className="font-medium">{c.providers.map((p) => PROVIDER_NAMES[p]).join(' or ')}</span>.
-          </p>
-        </div>
-        <div className="mt-5 flex justify-end gap-2">
-          <Btn variant="ghost" onClick={onClose}>
-            Not now
-          </Btn>
-          <Btn
-            onClick={() => {
-              onClose()
-              go('integrations')
-            }}
-          >
-            <Plug className="h-3.5 w-3.5" /> Open Integrations
-          </Btn>
-        </div>
-      </Modal>
-    )
-  }
-
-  const send = (e) => {
-    e.preventDefault()
-    if (channel === 'email' || channel === 'sms') {
-      // a real message — lands in the Inbox thread and the file timeline
-      sendMessage(b.id, channel, channel === 'email' ? `${subject}\n\n${body}` : body)
-    } else {
-      logCommunication(
-        b.id,
-        'call',
-        `Call logged${note.trim() ? ' — ' + note.trim() : ''}`,
-        'Call logged',
-      )
-    }
-    onClose()
-  }
-
-  return (
-    <Modal
-      open
-      onClose={onClose}
-      wide={channel === 'email'}
-      title={channel === 'call' ? `Log a call with ${first}` : `${c.label} ${first}`}
-      sub={`via ${prov.name} · ${prov.account}`}
-    >
-      <form onSubmit={send} className="space-y-4">
-        <Field label="To">
-          <input className={inputCls} value={b[c.field]} readOnly />
-        </Field>
-
-        {channel === 'email' && (
-          <Field label="Subject">
-            <input className={inputCls} value={subject} onChange={(e) => setSubject(e.target.value)} />
-          </Field>
-        )}
-
-        {channel === 'call' ? (
-          <Field label="Call notes (optional)">
-            <textarea
-              rows={3}
-              className={textareaCls}
-              placeholder="What did you cover? This gets logged to the timeline."
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-            />
-          </Field>
-        ) : (
-          <Field label="Message">
-            <textarea
-              rows={channel === 'email' ? 7 : 4}
-              className={textareaCls}
-              value={body}
-              onChange={(e) => setBody(e.target.value)}
-            />
-          </Field>
-        )}
-
-        <div className="flex items-center justify-between gap-3">
-          <p className="flex items-center gap-1.5 text-[11px] text-slate-400">
-            <ShieldCheck className="h-3.5 w-3.5 text-sage-500" />
-            Demo — nothing is actually sent; the action is logged to the file.
-          </p>
-          <div className="flex gap-2">
-            <Btn variant="ghost" onClick={onClose}>
-              Cancel
-            </Btn>
-            <Btn type="submit">
-              <Icon className="h-3.5 w-3.5" />
-              {channel === 'call' ? 'Log call' : `Send ${c.label.toLowerCase()}`}
-            </Btn>
-          </div>
-        </div>
-      </form>
-    </Modal>
-  )
-}
-
 export default function LoanFile({ id, initialTab = 'Overview' }) {
-  const { borrowers, go, openLoan, advanceStatus, requestDocs, setDocStatus, addNote, setFollowUp, nextActionLabel, tasks, completeTask, addTask, connections, logCommunication } = useApp()
+  const { borrowers, go, openLoan, advanceStatus, requestDocs, setDocStatus, addNote, setFollowUp, nextActionLabel, tasks, completeTask, addTask } = useApp()
   const [tab, setTab] = useState(initialTab)
-  const [compose, setCompose] = useState(null)
   const b = borrowers.find((x) => x.id === id)
 
   if (!b)
@@ -276,7 +72,6 @@ export default function LoanFile({ id, initialTab = 'Overview' }) {
     )
 
   const officer = officerById(b.officerId)
-  const rl = rateLockStatus(b)
   const missing = missingDocs(b)
   const dp = docProgress(b)
   const fileTasks = tasks.filter((t) => t.borrowerId === b.id)
@@ -304,7 +99,7 @@ export default function LoanFile({ id, initialTab = 'Overview' }) {
             {b.name.split(' ').map((w) => w[0]).slice(0, 2).join('')}
           </span>
           <div>
-            <h1 className="text-xl font-semibold leading-7 tracking-tight text-navy-950 dark:text-white">
+            <h1 className="text-xl font-semibold leading-7 tracking-tight text-navy-950">
               {b.name}
               {b.coBorrower && <span className="font-normal text-slate-400"> & {b.coBorrower}</span>}
             </h1>
@@ -323,41 +118,11 @@ export default function LoanFile({ id, initialTab = 'Overview' }) {
                   <Hourglass className="h-3 w-3" /> {daysInStage(b)}d in stage
                 </Badge>
               )}
-              {rl && (
-                <Badge
-                  cls={
-                    rl.expired
-                      ? 'bg-rose-50 text-rose-700 ring-rose-600/20'
-                      : rl.soon
-                        ? 'bg-amber-50 text-amber-800 ring-amber-600/25'
-                        : 'bg-sage-50 text-sage-700 ring-sage-600/20'
-                  }
-                >
-                  <Lock className="h-3 w-3" /> {rl.label}
-                </Badge>
-              )}
               <Badge cls="bg-slate-50 text-slate-600 ring-slate-400/30">{b.loanType} · {b.purpose}</Badge>
-              {b.agentId && agentById(b.agentId) && (
-                <button onClick={() => go('partners')} title="View agent partner">
-                  <Badge cls="bg-rose-50 text-rose-700 ring-rose-600/20 transition-colors hover:bg-rose-100">
-                    🤝 {agentById(b.agentId).name} · {agentById(b.agentId).brokerage}
-                  </Badge>
-                </button>
-              )}
             </div>
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          {APPLY_STAGES.includes(b.status) && (
-            <Btn
-              variant="outline"
-              onClick={() =>
-                logCommunication(b.id, 'apply', 'Online application link sent to borrower', 'Application link sent')
-              }
-            >
-              <Send className="h-4 w-4" /> Send application
-            </Btn>
-          )}
           <Btn variant="outline" onClick={() => go('portal', { id: b.id })}>
             <Eye className="h-4 w-4" /> Borrower view
           </Btn>
@@ -369,11 +134,8 @@ export default function LoanFile({ id, initialTab = 'Overview' }) {
         </div>
       </div>
 
-      {/* ---------- reach-out bar ---------- */}
-      {!isClosedOut(b) && <ContactBar b={b} connections={connections} onPick={setCompose} />}
-
       {/* ---------- tabs ---------- */}
-      <div className="mb-5 flex gap-5 overflow-x-auto border-b border-slate-200 dark:border-white/10">
+      <div className="mb-5 flex gap-5 overflow-x-auto border-b border-slate-200">
         {TABS.map((t) => (
           <button
             key={t}
@@ -381,8 +143,8 @@ export default function LoanFile({ id, initialTab = 'Overview' }) {
             className={cx(
               'flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 pb-2.5 pt-1 text-[13px] transition-colors',
               tab === t
-                ? 'border-navy-800 font-medium text-navy-950 dark:border-white dark:text-white'
-                : 'border-transparent text-slate-500 hover:text-navy-800 dark:hover:text-white',
+                ? 'border-navy-800 font-medium text-navy-950'
+                : 'border-transparent text-slate-500 hover:text-navy-800',
             )}
           >
             {t}
@@ -402,19 +164,9 @@ export default function LoanFile({ id, initialTab = 'Overview' }) {
       {tab === 'Tasks' && <TasksTab b={b} {...{ fileTasks, completeTask, addTask }} />}
       {tab === 'Notes' && <NotesTab b={b} addNote={addNote} />}
       {tab === 'Timeline' && (
-        <Card title="Loan file timeline" sub="Every status change, document, call, email, and note — automatically logged.">
+        <Card title="Loan file timeline" sub="Every status change, document, call, and note — automatically logged.">
           <Timeline events={[...b.timeline].reverse()} />
         </Card>
-      )}
-
-      {compose && (
-        <ComposeModal
-          b={b}
-          channel={compose}
-          connections={connections}
-          officer={officer}
-          onClose={() => setCompose(null)}
-        />
       )}
     </div>
   )
@@ -422,10 +174,9 @@ export default function LoanFile({ id, initialTab = 'Overview' }) {
 
 /* ================= Overview ================= */
 function OverviewTab({ b, officer, missing, dp, setTab, advanceStatus, requestDocs, setFollowUp, nextActionLabel }) {
-  const sla = slaStatus(b)
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+      <div className="grid gap-4 lg:grid-cols-3">
         <Card title="Where this file stands">
           <div className="flex items-center justify-between">
             <StatusBadge status={b.status} />
@@ -433,17 +184,6 @@ function OverviewTab({ b, officer, missing, dp, setTab, advanceStatus, requestDo
               {daysInStage(b)} day{daysInStage(b) === 1 ? '' : 's'} in this stage
             </span>
           </div>
-          {sla && (
-            <div className="mt-3">
-              <div className="mb-1 flex items-center justify-between text-[11px]">
-                <span className="text-slate-400">Stage SLA</span>
-                <span className={cx('tabular-nums', sla.over ? 'font-medium text-rose-600' : 'text-slate-500')}>
-                  {sla.days} / {sla.target}d{sla.over ? ' · over' : ''}
-                </span>
-              </div>
-              <ProgressBar pct={sla.pct} tone={sla.over ? 'bg-rose-500' : 'bg-navy-500'} />
-            </div>
-          )}
           <div className="mt-4 rounded-lg border border-slate-100 bg-slate-50 p-3">
             <p className="text-[11px] font-medium text-slate-400">Current next step</p>
             <p className="mt-1 text-[13px] font-medium text-navy-900">{NEXT_STEP[b.status]}</p>
@@ -496,7 +236,7 @@ function OverviewTab({ b, officer, missing, dp, setTab, advanceStatus, requestDo
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+      <div className="grid gap-4 lg:grid-cols-3">
         <Card
           title="Missing items"
           action={missing.length > 0 && <Badge cls="bg-amber-50 text-amber-800 ring-amber-600/25">{missing.length} outstanding</Badge>}
@@ -568,7 +308,7 @@ function OverviewTab({ b, officer, missing, dp, setTab, advanceStatus, requestDo
 function BorrowerTab({ b }) {
   const pct = b.creditScore ? ((b.creditScore - 300) / 550) * 100 : 0
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+    <div className="grid gap-4 sm:grid-cols-2">
       <Card title="Contact information">
         <ul className="space-y-3 text-sm">
           <li className="flex items-center gap-3">
@@ -655,103 +395,10 @@ function BorrowerTab({ b }) {
   )
 }
 
-/* interactive payment calculator (P&I + estimated taxes & insurance) */
-function PaymentCalculator({ b }) {
-  const [amount, setAmount] = useState(b.amount)
-  const [rate, setRate] = useState(b.rate)
-  const [term, setTerm] = useState(b.term)
-
-  const pi = monthlyPayment(amount || 0, rate || 0.01, term)
-  const taxes = ((b.propertyValue ?? amount) * 0.011) / 12
-  const insurance = 1400 / 12
-  const total = pi + taxes + insurance
-  const dirty = amount !== b.amount || rate !== b.rate || term !== b.term
-
-  const rows = [
-    ['Principal & interest', pi, 'text-navy-900'],
-    ['Est. property taxes', taxes, 'text-slate-600'],
-    ['Est. homeowners insurance', insurance, 'text-slate-600'],
-  ]
-
-  return (
-    <Card
-      title="Payment calculator"
-      sub="Adjust the numbers to explore options"
-      action={
-        dirty && (
-          <button
-            onClick={() => {
-              setAmount(b.amount)
-              setRate(b.rate)
-              setTerm(b.term)
-            }}
-            className="text-xs font-medium text-navy-600 transition-colors hover:text-navy-900"
-          >
-            Reset
-          </button>
-        )
-      }
-    >
-      <div className="grid grid-cols-3 gap-2">
-        <Field label="Amount">
-          <input
-            type="number"
-            min="0"
-            step="1000"
-            className={inputCls}
-            value={amount}
-            onChange={(e) => setAmount(Number(e.target.value))}
-          />
-        </Field>
-        <Field label="Rate %">
-          <input
-            type="number"
-            min="0"
-            step="0.125"
-            className={inputCls}
-            value={rate}
-            onChange={(e) => setRate(Number(e.target.value))}
-          />
-        </Field>
-        <Field label="Term">
-          <Select
-            value={String(term)}
-            onChange={(v) => setTerm(Number(v))}
-            options={[
-              { value: '15', label: '15 yr' },
-              { value: '30', label: '30 yr' },
-            ]}
-          />
-        </Field>
-      </div>
-
-      <dl className="mt-4 space-y-2 border-t border-slate-100 pt-3">
-        {rows.map(([label, val, tone]) => (
-          <div key={label} className="flex items-center justify-between text-[13px]">
-            <dt className="text-slate-500">{label}</dt>
-            <dd className={cx('font-medium tabular-nums', tone)}>{money(val)}/mo</dd>
-          </div>
-        ))}
-        <div className="flex items-center justify-between border-t border-slate-100 pt-2.5">
-          <dt className="text-sm font-semibold text-navy-950">Estimated total</dt>
-          <dd className="text-lg font-semibold text-navy-950 tabular-nums">
-            {money(total)}
-            <span className="text-xs font-normal text-slate-400">/mo</span>
-          </dd>
-        </div>
-      </dl>
-
-      <p className="mt-3 rounded-lg border border-sage-100 bg-sage-50/70 p-2.5 text-[11px] leading-relaxed text-slate-500">
-        Demo estimate only — taxes & insurance are rough placeholders, not a quote. No MI included.
-      </p>
-    </Card>
-  )
-}
-
 /* ================= Loan Details ================= */
 function LoanTab({ b }) {
   return (
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+    <div className="grid gap-4 lg:grid-cols-3">
       <Card title="Loan details" className="lg:col-span-2">
         <dl className="grid grid-cols-2 gap-x-4 gap-y-5 md:grid-cols-3">
           <KV k="Loan type" v={b.loanType} />
@@ -766,21 +413,22 @@ function LoanTab({ b }) {
           <KV k="Property address" v={b.propertyAddress} className="col-span-2 md:col-span-3" />
         </dl>
       </Card>
-      <PaymentCalculator b={b} />
+      <Card title="Estimated payment" sub="Principal & interest only">
+        <p className="text-2xl font-semibold tracking-tight text-navy-950 tabular-nums">
+          {money(monthlyPayment(b.amount, b.rate, b.term))}
+          <span className="text-sm font-normal tracking-normal text-slate-400">/mo</span>
+        </p>
+        <p className="mt-3 rounded-lg border border-sage-100 bg-sage-50/70 p-3 text-xs leading-relaxed text-slate-600">
+          Demo estimate at {b.rate}% over {b.term} years — not a quote, not including taxes, insurance, or MI.
+        </p>
+      </Card>
     </div>
   )
 }
 
 /* ================= Documents ================= */
 function DocsTab({ b, missing, dp, requestDocs, setDocStatus }) {
-  const { toast } = useApp()
   const requestable = b.docs.filter((x) => x.status === 'Needed' || x.status === 'Rejected').length
-  const onFiles = (files) => {
-    const outstanding = b.docs.filter((x) => x.status === 'Needed' || x.status === 'Requested' || x.status === 'Rejected')
-    const n = Math.min(files.length, outstanding.length)
-    outstanding.slice(0, n).forEach((x) => setDocStatus(b.id, x.name, 'Uploaded'))
-    toast(n ? `Uploaded ${n} document${n > 1 ? 's' : ''}` : 'Everything is already uploaded', '📎')
-  }
   return (
     <Card
       title="Document checklist"
@@ -791,19 +439,13 @@ function DocsTab({ b, missing, dp, requestDocs, setDocStatus }) {
         </Btn>
       }
     >
-      <div className="mb-4 flex items-center gap-3">
+      <div className="mb-5 flex items-center gap-3">
         <ProgressBar pct={dp.pct} className="h-2.5 flex-1" />
         <span className="whitespace-nowrap text-xs font-medium text-slate-500">
           {dp.done}/{dp.total} approved
         </span>
       </div>
-      <DropZone
-        className="mb-5"
-        onFiles={onFiles}
-        label="Drop borrower documents here"
-        hint="or click to browse — we’ll match them to the checklist"
-      />
-      <ul className="divide-y divide-slate-100 dark:divide-white/10">
+      <ul className="divide-y divide-slate-100">
         {b.docs.map((doc) => (
           <li key={doc.name} className="flex flex-wrap items-center gap-3 py-3">
             <span

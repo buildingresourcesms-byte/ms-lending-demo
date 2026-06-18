@@ -406,6 +406,32 @@ export const SEED_AGENT_INTROS = {
   carl: [{ name: 'Devon M.', date: d(-30), note: 'Investor — two rentals in Pearl' }],
 }
 
+/* ============================================================
+   SEED MESSAGES — real two-way borrower threads for the Inbox.
+   dir: 'out' = from the loan officer, 'in' = from the borrower.
+   ============================================================ */
+const at = (n, t) => `${d(n)}T${t}:00`
+export const SEED_MESSAGES = {
+  b2: [
+    { id: 'm1', dir: 'out', channel: 'sms', body: 'Hi Devin — still need May pay stubs and both bank statements to keep things moving. Can you get those up this week?', at: at(-4, '09:12'), read: true },
+    { id: 'm2', dir: 'in', channel: 'sms', body: 'Hey! Yes, Alyssa is grabbing the pay stubs tonight. I can send bank statements now.', at: at(-4, '12:48'), read: true },
+    { id: 'm3', dir: 'out', channel: 'sms', body: 'Perfect, thank you! Upload anytime from the link I texted you.', at: at(-3, '08:30'), read: true },
+    { id: 'm4', dir: 'in', channel: 'sms', body: 'Just sent the bank statements 👍', at: at(-2, '17:05'), read: false },
+  ],
+  b10: [
+    { id: 'm1', dir: 'out', channel: 'sms', body: 'Hi Sandra, checking in — we’re still missing pay stubs, bank statements, and tax returns. Want to knock these out this week?', at: at(-9, '10:20'), read: true },
+    { id: 'm2', dir: 'in', channel: 'sms', body: 'So sorry, I’ve been traveling for work! Back Friday and I’ll send everything then.', at: at(-8, '19:40'), read: true },
+    { id: 'm3', dir: 'out', channel: 'sms', body: 'No rush at all — whenever you’re back. We’re ready on our end.', at: at(-1, '11:15'), read: true },
+  ],
+  b8: [
+    { id: 'm1', dir: 'out', channel: 'email', body: 'Brittany — huge news: you’re CLEAR TO CLOSE! 🎉 Closing is set for Friday at 10am, Madison Title Co. I’ll send the final numbers tomorrow.', at: at(-1, '15:02'), read: true },
+    { id: 'm2', dir: 'in', channel: 'email', body: 'OMG THANK YOU!!! I can’t believe it’s finally happening. See you Friday!!', at: at(-1, '15:31'), read: false },
+  ],
+  b1: [
+    { id: 'm1', dir: 'out', channel: 'sms', body: 'Hi Carla, this is Julene at MS Lending following up on your Zillow inquiry — do you have a few minutes this afternoon to talk about getting pre-qualified?', at: at(0, '08:45'), read: true },
+  ],
+}
+
 /* co-branded apply link: the agent shares it, the LO gets the lead,
    the agent gets the credit */
 export const agentApplyLink = (officer, agent) => `${APPLY_BASE}/${officer.id}/${agent.id}`

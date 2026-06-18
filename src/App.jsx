@@ -28,6 +28,7 @@ import {
   Sun,
   Moon,
   LogOut,
+  MessageSquare,
 } from 'lucide-react'
 import { AppProvider, useApp } from './store.jsx'
 import { OFFICERS, LOAN_TYPES, SOURCES, INTEGRATIONS, agentById, daysUntil, rateLockStatus, timeOfDay, SKY, DISCLAIMER } from './data.js'
@@ -163,7 +164,7 @@ function NewLeadModal({ open, onClose }) {
 }
 
 /* ---------------- sidebar ---------------- */
-function NavItem({ page, label, icon: Icon, active, onGo }) {
+function NavItem({ page, label, icon: Icon, active, onGo, badge }) {
   return (
     <button
       onClick={() => onGo(page)}
@@ -176,6 +177,11 @@ function NavItem({ page, label, icon: Icon, active, onGo }) {
     >
       <Icon className="h-4 w-4" strokeWidth={1.75} />
       {label}
+      {badge > 0 && (
+        <span className="ml-auto grid h-4 min-w-4 place-items-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white tabular-nums">
+          {badge}
+        </span>
+      )}
     </button>
   )
 }
@@ -318,9 +324,12 @@ function SeatSwitcher() {
 }
 
 function Sidebar({ mobileOpen, onCloseMobile }) {
-  const { view, go, connections } = useApp()
+  const { view, go, connections, messages, borrowers, seat } = useApp()
   const activePage = view.page === 'loan' ? 'borrowers' : view.page
   const connectedIntegrations = INTEGRATIONS.filter((it) => connections[it.id])
+  const inboxUnread = borrowers
+    .filter((b) => seat === 'team' || b.officerId === seat)
+    .reduce((n, b) => n + (messages[b.id] ?? []).filter((m) => m.dir === 'in' && !m.read).length, 0)
   const onGo = (page) => {
     go(page)
     onCloseMobile()
@@ -342,7 +351,13 @@ function Sidebar({ mobileOpen, onCloseMobile }) {
 
       <nav className="flex-1 space-y-0.5 px-3">
         {NAV_MAIN.map((item) => (
-          <NavItem key={item.page} {...item} active={activePage === item.page} onGo={onGo} />
+          <NavItem
+            key={item.page}
+            {...item}
+            active={activePage === item.page}
+            onGo={onGo}
+            badge={item.page === 'inbox' ? inboxUnread : undefined}
+          />
         ))}
         <p className="px-2.5 pb-1 pt-5 text-[10px] font-semibold uppercase tracking-wider text-navy-500">
           Client view
@@ -550,14 +565,25 @@ function CommandPalette({ open, onClose }) {
 
 /* ---------------- notification bell ---------------- */
 function NotificationBell() {
-  const { metrics, borrowers, seat, notifPrefs, openLoan, go } = useApp()
+  const { metrics, borrowers, messages, seat, notifPrefs, openLoan, go } = useApp()
   const [open, setOpen] = useState(false)
 
   const mine = seat === 'team' ? borrowers : borrowers.filter((b) => b.officerId === seat)
   const applyLeads = mine.filter((b) => b.viaApply && b.status === 'New Lead')
   const referralLeads = mine.filter((b) => b.viaReferral && b.status === 'New Lead')
+  const unreadMsgs = mine
+    .map((b) => ({ b, unread: (messages[b.id] ?? []).filter((m) => m.dir === 'in' && !m.read).length }))
+    .filter((x) => x.unread > 0)
 
   const items = [
+    ...unreadMsgs.map(({ b, unread }) => ({
+      key: 'm' + b.id,
+      icon: MessageSquare,
+      tone: 'bg-sky-50 text-sky-600',
+      text: `New message${unread > 1 ? `s (${unread})` : ''} from ${b.name}`,
+      sub: 'Open the inbox',
+      onClick: () => go('inbox'),
+    })),
     ...(notifPrefs.applyLeads
       ? referralLeads.map((b) => ({
           key: 'r' + b.id,

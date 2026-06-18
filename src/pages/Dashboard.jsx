@@ -1,40 +1,9 @@
-import {
-  UserPlus,
-  FolderOpen,
-  FileWarning,
-  Landmark,
-  KeyRound,
-  AlarmClock,
-  ArrowRight,
-  CheckCircle2,
-  Check,
-  Hourglass,
-} from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { ArrowRight, Sliders, Check, Plus, X, ChevronUp, ChevronDown, RotateCcw, GripVertical } from 'lucide-react'
 import { useApp } from '../store.jsx'
-import {
-  ACTIVE_STATUSES,
-  STATUS_STYLES,
-  WEEKLY_LEADS,
-  relDate,
-  fmtDate,
-  daysUntil,
-  daysInStage,
-  isClosedOut,
-  rateLockStatus,
-  money,
-  SKY,
-  timeOfDay,
-  d,
-  addDaysISO,
-  weekdayOf,
-  calendarEvents,
-  CAL_TYPES,
-  AGENTS,
-  agentDeals,
-} from '../data.js'
-import { Card, Stat, Btn, EmptyState, cx } from '../ui.jsx'
-import { PipelineBars, Donut, Sparkline } from '../charts.jsx'
-import { EVENT_META } from '../events.jsx'
+import { SKY, timeOfDay } from '../data.js'
+import { Btn, cx } from '../ui.jsx'
+import { WIDGETS, WIDGET_BY_ID, DEFAULT_VISIBLE } from '../widgets.jsx'
 
 const STARS = [
   ['14%', '24%'],
@@ -45,76 +14,71 @@ const STARS = [
   ['52%', '20%'],
 ]
 
+const LS_KEY = 'msl-dashboard-v1'
+const ALL_IDS = WIDGETS.map((w) => w.id)
+
+function loadLayout() {
+  const fallback = { visible: DEFAULT_VISIBLE, hidden: ALL_IDS.filter((id) => !DEFAULT_VISIBLE.includes(id)) }
+  try {
+    const raw = JSON.parse(localStorage.getItem(LS_KEY))
+    if (!raw || !Array.isArray(raw.visible)) return fallback
+    // keep only known ids; append any new widgets to hidden so updates don't vanish
+    const visible = raw.visible.filter((id) => ALL_IDS.includes(id))
+    const hidden = ALL_IDS.filter((id) => !visible.includes(id))
+    return { visible, hidden }
+  } catch {
+    return fallback
+  }
+}
+
 export default function Dashboard() {
-  const { metrics, borrowers, tasks, goBorrowers, go, openLoan, completeTask, seat, currentOfficer } = useApp()
+  const { metrics, goBorrowers, go, seat, currentOfficer } = useApp()
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
   const sky = SKY[timeOfDay()]
   const firstName = currentOfficer ? currentOfficer.name.split(' ')[0] : null
-  const todayLabel = new Date().toLocaleDateString('en-US', {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-  })
+  const todayLabel = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
 
-  const mine = seat === 'team' ? borrowers : borrowers.filter((b) => b.officerId === seat)
+  const [layout, setLayout] = useState(loadLayout)
+  const [customizing, setCustomizing] = useState(false)
 
-  const pipeline = ACTIVE_STATUSES.map((s) => ({
-    label: s,
-    count: mine.filter((b) => b.status === s).length,
-    color: STATUS_STYLES[s].bar,
-  }))
+  useEffect(() => {
+    try {
+      localStorage.setItem(LS_KEY, JSON.stringify(layout))
+    } catch {
+      /* storage unavailable (private mode) — layout still applies this session */
+    }
+  }, [layout])
 
-  const sourceCounts = Object.entries(
-    mine.reduce((acc, b) => ((acc[b.source] = (acc[b.source] ?? 0) + 1), acc), {}),
-  )
-    .map(([label, value]) => ({ label, value }))
-    .sort((a, z) => z.value - a.value)
-
-  const thisWeek = WEEKLY_LEADS[WEEKLY_LEADS.length - 1]
-  const lastWeek = WEEKLY_LEADS[WEEKLY_LEADS.length - 2]
-  const delta = Math.round(((thisWeek - lastWeek) / lastWeek) * 100)
-
-  /* agent-partner pulse — referrals are the lifeblood */
-  const partnerPulse = AGENTS.map((a) => {
-    const deals = agentDeals(borrowers, a.id)
-    return { a, active: deals.filter((b) => !isClosedOut(b)).length }
-  }).sort((x, z) => z.active - x.active)
-  const freshReferrals = mine.filter((b) => b.viaReferral && b.status === 'New Lead')
-
-  /* next 7 days for the week-at-a-glance strip */
-  const today = d(0)
-  const week = Array.from({ length: 7 }, (_, i) => addDaysISO(today, i))
-  const weekEvents = calendarEvents(borrowers, tasks, seat)
-  const eventsOn = (iso) => weekEvents.filter((e) => e.date === iso)
-  const pastDue = weekEvents.filter((e) => e.date < today).length
+  const move = (id, dir) =>
+    setLayout((l) => {
+      const v = [...l.visible]
+      const i = v.indexOf(id)
+      const j = i + dir
+      if (i < 0 || j < 0 || j >= v.length) return l
+      ;[v[i], v[j]] = [v[j], v[i]]
+      return { ...l, visible: v }
+    })
+  const remove = (id) => setLayout((l) => ({ visible: l.visible.filter((x) => x !== id), hidden: [id, ...l.hidden] }))
+  const add = (id) => setLayout((l) => ({ visible: [...l.visible, id], hidden: l.hidden.filter((x) => x !== id) }))
+  const reset = () => setLayout({ visible: DEFAULT_VISIBLE, hidden: ALL_IDS.filter((id) => !DEFAULT_VISIBLE.includes(id)) })
 
   return (
     <div className="space-y-5">
       {/* ---------- greeting hero (time-of-day sky) ---------- */}
       <div className={cx('relative overflow-hidden rounded-2xl bg-gradient-to-br p-5 ring-1 ring-black/[0.04] sm:p-6', sky.grad)}>
-        {/* decorative sky */}
         <div className="pointer-events-none absolute inset-0">
           {sky.moon &&
             STARS.map(([top, left], i) => (
-              <span
-                key={i}
-                className="animate-twinkle absolute h-1 w-1 rounded-full bg-white"
-                style={{ top, left, animationDelay: `${i * 0.45}s` }}
-              />
+              <span key={i} className="animate-twinkle absolute h-1 w-1 rounded-full bg-white" style={{ top, left, animationDelay: `${i * 0.45}s` }} />
             ))}
           <div className="animate-sunrise absolute -right-4 -top-10">
             <div className="relative">
               <div className={cx('absolute -inset-10 rounded-full blur-2xl', sky.glow)} />
-              <div
-                className="animate-floaty h-28 w-28 rounded-full sm:h-32 sm:w-32"
-                style={{ background: sky.orbBg, boxShadow: sky.shadow }}
-              />
+              <div className="animate-floaty h-28 w-28 rounded-full sm:h-32 sm:w-32" style={{ background: sky.orbBg, boxShadow: sky.shadow }} />
             </div>
           </div>
         </div>
-
-        {/* content */}
         <div className="relative z-10 flex flex-wrap items-end justify-between gap-3">
           <div>
             <p className={cx('text-xs', sky.muted)}>{todayLabel}</p>
@@ -123,14 +87,12 @@ export default function Dashboard() {
               {firstName ? `, ${firstName}` : ''}
             </h1>
             <p className={cx('mt-1 text-[13px]', sky.muted)}>
-              {firstName
-                ? 'Here’s your day — your borrowers, tasks, and follow-ups.'
-                : 'Here’s where every borrower, document, and loan file stands today.'}
+              {firstName ? 'Here’s your day — your calendar, tasks, and open loans.' : 'Your calendar, tasks, and open loans at a glance.'}
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Btn variant="outline" onClick={() => goBorrowers()}>
-              View pipeline
+            <Btn variant="outline" onClick={() => go('calendar')}>
+              Calendar
             </Btn>
             <Btn onClick={() => go('tasks')}>
               Today’s tasks
@@ -140,307 +102,109 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* ---------- stat cards ---------- */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-        <Stat
-          icon={UserPlus}
-          label="New leads this week"
-          value={metrics.newThisWeek.length}
-          accent="sky"
-          onClick={() => goBorrowers({ status: 'New Lead' })}
-        />
-        <Stat
-          icon={FolderOpen}
-          label="Active loan files"
-          value={metrics.active.length}
-          accent="navy"
-          onClick={() => goBorrowers()}
-        />
-        <Stat
-          icon={FileWarning}
-          label="Waiting on documents"
-          value={metrics.waitingDocs.length}
-          accent="amber"
-          onClick={() => goBorrowers({ status: 'Documents Needed' })}
-        />
-        <Stat
-          icon={Landmark}
-          label="In underwriting"
-          value={metrics.underwriting.length}
-          accent="violet"
-          onClick={() => goBorrowers({ status: 'Underwriting' })}
-        />
-        <Stat
-          icon={KeyRound}
-          label="Ready to close"
-          value={metrics.readyToClose.length}
-          accent="sage"
-          onClick={() => goBorrowers({ status: 'Clear to Close' })}
-        />
-        <Stat
-          icon={AlarmClock}
-          label="Overdue follow-ups"
-          value={metrics.overdue.length}
-          accent="rose"
-          onClick={() => goBorrowers({ overdue: true })}
-        />
+      {/* ---------- customize toolbar ---------- */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-[13px] font-medium text-slate-500 dark:text-slate-400">
+          {customizing ? 'Add, remove, or reorder your widgets' : 'Your workspace'}
+        </p>
+        <div className="flex items-center gap-2">
+          {customizing && (
+            <button
+              onClick={reset}
+              className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-navy-900 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white"
+            >
+              <RotateCcw className="h-3.5 w-3.5" /> Reset
+            </button>
+          )}
+          <Btn variant={customizing ? 'sage' : 'outline'} onClick={() => setCustomizing((v) => !v)}>
+            {customizing ? <><Check className="h-3.5 w-3.5" /> Done</> : <><Sliders className="h-3.5 w-3.5" /> Customize</>}
+          </Btn>
+        </div>
       </div>
 
-      {/* ---------- charts ---------- */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <Card title="Pipeline by stage" sub="Click a stage to see those files">
-          <PipelineBars data={pipeline} onPick={(s) => goBorrowers({ status: s })} />
-        </Card>
-        <Card title="Lead sources" sub="Where this pipeline came from">
-          <Donut segments={sourceCounts} />
-        </Card>
-        <Card title="New leads" sub="Last 8 weeks">
-          <div className="flex items-end justify-between">
-            <div>
-              <p className="text-2xl font-semibold tracking-tight text-navy-950 tabular-nums">{thisWeek}</p>
-              <p className="text-xs text-slate-400">this week</p>
+      {/* ---------- widget grid ---------- */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        {layout.visible.map((id, i) => {
+          const w = WIDGET_BY_ID[id]
+          if (!w) return null
+          const Widget = w.Component
+          return (
+            <div key={id} className={cx('relative', w.size === 'full' && 'lg:col-span-2')}>
+              {customizing && (
+                <div className="absolute -top-2 right-2 z-20 flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-1 py-1 shadow-md dark:border-white/15 dark:bg-navy-800">
+                  <button
+                    onClick={() => move(id, -1)}
+                    disabled={i === 0}
+                    title="Move up"
+                    className="rounded p-1 text-slate-500 transition-colors hover:bg-slate-100 disabled:opacity-30 dark:text-slate-300 dark:hover:bg-white/10"
+                  >
+                    <ChevronUp className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => move(id, 1)}
+                    disabled={i === layout.visible.length - 1}
+                    title="Move down"
+                    className="rounded p-1 text-slate-500 transition-colors hover:bg-slate-100 disabled:opacity-30 dark:text-slate-300 dark:hover:bg-white/10"
+                  >
+                    <ChevronDown className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => remove(id)}
+                    title="Remove widget"
+                    className="rounded p-1 text-rose-500 transition-colors hover:bg-rose-50 dark:hover:bg-rose-500/15"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
+              <div className={cx('h-full', customizing && 'pointer-events-none select-none rounded-xl outline-2 outline-dashed outline-offset-2 outline-navy-300/70')}>
+                <Widget />
+              </div>
             </div>
-            <p className={cx('text-xs font-medium tabular-nums', delta >= 0 ? 'text-sage-700' : 'text-rose-600')}>
-              {delta >= 0 ? '+' : ''}
-              {delta}% vs last week
-            </p>
-          </div>
-          <Sparkline values={WEEKLY_LEADS} className="mt-3 h-16 w-full" />
-        </Card>
+          )
+        })}
       </div>
 
-      {/* ---------- partner network pulse ---------- */}
-      <Card
-        title="Your agent partners"
-        sub="The referral network this whole program runs on"
-        action={
-          <button
-            onClick={() => go('partners')}
-            className="flex items-center gap-1 text-xs font-medium text-navy-600 transition-colors hover:text-navy-900 dark:text-slate-300 dark:hover:text-white"
-          >
-            Partners hub <ArrowRight className="h-3 w-3" />
-          </button>
-        }
-      >
-        {freshReferrals.length > 0 && (
-          <button
-            onClick={() => openLoan(freshReferrals[0].id)}
-            className="mb-3 flex w-full items-center gap-2 rounded-lg bg-sage-50 px-3 py-2 text-left text-xs font-medium text-sage-800 ring-1 ring-inset ring-sage-600/20 transition-colors hover:bg-sage-100/70 dark:bg-sage-500/15"
-          >
-            🤝 {freshReferrals.length} new referral{freshReferrals.length > 1 ? 's' : ''} waiting —{' '}
-            {freshReferrals.map((b) => b.name.split(' ')[0]).join(', ')} — call back fast, that’s the whole pitch
-          </button>
-        )}
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-          {partnerPulse.map(({ a, active }) => (
-            <button
-              key={a.id}
-              onClick={() => go('partners')}
-              className="flex items-center gap-2.5 rounded-xl border border-slate-200/80 p-2.5 text-left transition-colors hover:border-navy-300/70 hover:bg-slate-50/60 dark:border-white/10 dark:hover:bg-white/5"
-            >
-              <span className={cx('grid h-9 w-9 shrink-0 place-items-center rounded-full text-[11px] font-semibold text-white', a.color)}>
-                {a.initials}
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-[13px] font-medium text-navy-950 dark:text-white">{a.name}</span>
-                <span className="block truncate text-[11px] text-slate-400">{a.brokerage}</span>
-              </span>
-              <span className="shrink-0 rounded-md bg-navy-50 px-1.5 py-0.5 text-[11px] font-semibold text-navy-700 tabular-nums dark:bg-white/10 dark:text-white">
-                {active}
-              </span>
-            </button>
-          ))}
-        </div>
-      </Card>
-
-      {/* ---------- your week (calendar strip) ---------- */}
-      <Card
-        title="Your week"
-        sub="Closings, rate locks, follow-ups & tasks — tap a day to open the calendar"
-        action={
-          <button
-            onClick={() => go('calendar')}
-            className="flex items-center gap-1 text-xs font-medium text-navy-600 transition-colors hover:text-navy-900 dark:text-slate-300 dark:hover:text-white"
-          >
-            Open calendar <ArrowRight className="h-3 w-3" />
-          </button>
-        }
-      >
-        {pastDue > 0 && (
-          <button
-            onClick={() => go('calendar')}
-            className="mb-3 flex w-full items-center gap-2 rounded-lg bg-rose-50 px-3 py-2 text-left text-xs font-medium text-rose-700 ring-1 ring-inset ring-rose-600/20 transition-colors hover:bg-rose-100/70 dark:bg-rose-500/15"
-          >
-            <AlarmClock className="h-3.5 w-3.5 shrink-0" />
-            {pastDue} item{pastDue > 1 ? 's' : ''} past due — see them on the calendar
-          </button>
-        )}
-        <div className="grid grid-cols-7 gap-1.5">
-          {week.map((iso) => {
-            const evts = eventsOn(iso)
-            const isToday = iso === today
-            const dow = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][weekdayOf(iso)]
-            return (
-              <button
-                key={iso}
-                onClick={() => go('calendar')}
-                title={evts.length ? `${evts.length} event${evts.length > 1 ? 's' : ''}` : 'Free'}
-                className={cx(
-                  'flex min-h-[4.25rem] flex-col items-center gap-1 rounded-xl border p-2 transition-all duration-150 active:scale-[0.97]',
-                  isToday
-                    ? 'border-navy-800 bg-navy-900 text-white dark:border-white/40'
-                    : 'border-slate-200/80 bg-white hover:border-navy-300/70 hover:bg-slate-50/60 dark:border-white/10 dark:bg-navy-900 dark:hover:border-white/25',
-                )}
-              >
-                <span className={cx('text-[10px] font-semibold uppercase', isToday ? 'text-white/70' : 'text-slate-400')}>
-                  {dow}
-                </span>
-                <span className={cx('text-sm font-semibold tabular-nums', isToday ? 'text-white' : 'text-navy-950 dark:text-white')}>
-                  {Number(iso.slice(8, 10))}
-                </span>
-                <span className="flex flex-wrap items-center justify-center gap-0.5">
-                  {evts.slice(0, 4).map((e) => (
-                    <span key={e.id} className={cx('h-1.5 w-1.5 rounded-full', CAL_TYPES[e.type].chip)} />
-                  ))}
-                  {evts.length > 4 && (
-                    <span className={cx('text-[9px] font-medium', isToday ? 'text-white/70' : 'text-slate-400')}>
-                      +{evts.length - 4}
-                    </span>
-                  )}
-                </span>
-              </button>
-            )
-          })}
-        </div>
-      </Card>
-
-      {/* ---------- work lists ---------- */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        {/* today's tasks */}
-        <Card
-          title="Today’s tasks"
-          sub={`${metrics.todays.length} due or overdue`}
-          action={
-            <button
-              onClick={() => go('tasks')}
-              className="flex items-center gap-1 text-xs font-medium text-navy-600 transition-colors hover:text-navy-900"
-            >
-              View board <ArrowRight className="h-3 w-3" />
-            </button>
-          }
-          pad={false}
-        >
-          {metrics.todays.length === 0 ? (
-            <EmptyState icon={CheckCircle2} title="All caught up" sub="Nothing due today." />
+      {/* ---------- add-widget tray (customize mode) ---------- */}
+      {customizing && (
+        <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50/60 p-4 dark:border-white/15 dark:bg-white/[0.03]">
+          <p className="mb-2.5 flex items-center gap-1.5 text-[13px] font-semibold text-navy-950 dark:text-white">
+            <Plus className="h-4 w-4" /> Add a widget
+          </p>
+          {layout.hidden.length === 0 ? (
+            <p className="text-xs text-slate-400">Every widget is on your dashboard. Remove one to see it here.</p>
           ) : (
-            <ul className="divide-y divide-slate-100 px-5">
-              {metrics.todays.slice(0, 6).map((t) => {
-                const b = borrowers.find((x) => x.id === t.borrowerId)
-                const overdue = daysUntil(t.due) < 0
+            <div className="flex flex-wrap gap-2">
+              {layout.hidden.map((id) => {
+                const w = WIDGET_BY_ID[id]
+                if (!w) return null
+                const Icon = w.icon
                 return (
-                  <li key={t.id} className="-mx-2 flex items-center gap-3 rounded-lg px-2 py-2.5 transition-colors hover:bg-slate-50/70">
-                    <button
-                      onClick={() => completeTask(t.id)}
-                      title="Mark complete"
-                      aria-label={`Mark "${t.title}" complete`}
-                      className="grid h-5 w-5 shrink-0 place-items-center rounded-full border-[1.5px] border-slate-300 text-transparent transition-colors hover:border-sage-600 hover:bg-sage-50 hover:text-sage-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage-500/40"
-                    >
-                      <Check className="h-3 w-3" strokeWidth={3} />
-                    </button>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-[13px] text-slate-700">{t.title}</p>
-                      {b && (
-                        <button
-                          onClick={() => openLoan(b.id)}
-                          className="text-xs text-slate-400 transition-colors hover:text-navy-700"
-                        >
-                          {b.name}
-                        </button>
-                      )}
-                    </div>
-                    <span className={cx('text-xs tabular-nums', overdue ? 'font-medium text-rose-600' : 'text-slate-400')}>
-                      {relDate(t.due)}
-                    </span>
-                  </li>
+                  <button
+                    key={id}
+                    onClick={() => add(id)}
+                    className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-[13px] font-medium text-slate-700 shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:border-navy-300/70 hover:text-navy-900 active:scale-[0.97] dark:border-white/10 dark:bg-navy-900 dark:text-slate-200 dark:hover:border-white/25"
+                  >
+                    <Icon className="h-4 w-4 text-navy-500 dark:text-slate-300" strokeWidth={1.75} />
+                    {w.name}
+                    <Plus className="h-3.5 w-3.5 text-slate-400" />
+                  </button>
                 )
               })}
-            </ul>
+            </div>
           )}
-        </Card>
+        </div>
+      )}
 
-        {/* needs attention */}
-        <Card title="Needs attention" sub="Overdue follow-ups & files stuck in a stage" pad={false}>
-          {metrics.overdue.length === 0 && metrics.stuck.length === 0 ? (
-            <EmptyState icon={CheckCircle2} title="Nothing slipping" sub="Every file is moving along." />
-          ) : (
-            <ul className="divide-y divide-slate-100 px-5">
-              {metrics.overdue.map((b) => (
-                <li key={b.id} className="flex items-center gap-3 py-2.5">
-                  <AlarmClock className="h-4 w-4 shrink-0 text-rose-500" strokeWidth={1.75} />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-[13px] font-medium text-slate-700">{b.name}</p>
-                    <p className="text-xs text-slate-400">
-                      Follow-up {-daysUntil(b.nextFollowUp)}d overdue · {b.status}
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => openLoan(b.id)}
-                    className="text-xs font-medium text-navy-600 transition-colors hover:text-navy-900"
-                  >
-                    Open
-                  </button>
-                </li>
-              ))}
-              {metrics.stuck
-                .filter((b) => !metrics.overdue.includes(b))
-                .map((b) => (
-                  <li key={b.id} className="flex items-center gap-3 py-2.5">
-                    <Hourglass className="h-4 w-4 shrink-0 text-amber-500" strokeWidth={1.75} />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-[13px] font-medium text-slate-700">{b.name}</p>
-                      <p className="text-xs text-slate-400">
-                        {daysInStage(b)} days in {b.status}
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => openLoan(b.id)}
-                      className="text-xs font-medium text-navy-600 transition-colors hover:text-navy-900"
-                    >
-                      Open
-                    </button>
-                  </li>
-                ))}
-            </ul>
-          )}
-        </Card>
-
-        {/* recent activity */}
-        <Card title="Recent activity" sub="Across all loan files" pad={false}>
-          <ul className="divide-y divide-slate-100 px-5">
-            {metrics.activity.map((e, i) => {
-              const meta = EVENT_META[e.type] ?? EVENT_META.note
-              const Icon = meta.icon
-              return (
-                <li key={i} className="flex items-start gap-3 py-2.5">
-                  <span className={cx('mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full', meta.cls)}>
-                    <Icon className="h-3 w-3" strokeWidth={1.75} />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-[13px] text-slate-700">{e.text}</p>
-                    <button
-                      onClick={() => openLoan(e.borrowerId)}
-                      className="text-xs text-slate-400 transition-colors hover:text-navy-700"
-                    >
-                      {e.borrower} · {relDate(e.date)}
-                    </button>
-                  </div>
-                </li>
-              )
-            })}
-          </ul>
-        </Card>
-      </div>
-
+      {layout.visible.length === 0 && !customizing && (
+        <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center dark:border-white/15 dark:bg-navy-900">
+          <p className="text-sm font-medium text-slate-600 dark:text-slate-300">Your dashboard is empty</p>
+          <p className="mt-1 text-xs text-slate-400">Tap Customize to add the widgets you want.</p>
+          <Btn variant="sage" className="mx-auto mt-4" onClick={() => setCustomizing(true)}>
+            <Sliders className="h-3.5 w-3.5" /> Customize
+          </Btn>
+        </div>
+      )}
     </div>
   )
 }

@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { Building2, MapPin, Phone, Mail, BadgeCheck, AlertTriangle, Check } from 'lucide-react'
+import { Building2, MapPin, Phone, Mail, BadgeCheck, AlertTriangle, Check, RotateCcw } from 'lucide-react'
 import { useApp } from '../store.jsx'
 import { OFFICERS, DISCLAIMER } from '../data.js'
-import { PageHeader, Card, Avatar, Toggle, BrandMark, Badge, cx } from '../ui.jsx'
+import { PageHeader, Card, Avatar, Toggle, BrandMark, Badge, Btn, cx } from '../ui.jsx'
 
 /* selectable themes — preview colors are fixed hexes so every swatch
    shows its own colors no matter which theme is active */
@@ -15,7 +15,7 @@ const THEMES = [
 ]
 
 export default function Settings() {
-  const { toast, go, notifPrefs, setNotifPref, theme, toggleTheme, palette, setPalette } = useApp()
+  const { toast, go, notifPrefs, setNotifPref, theme, toggleTheme, palette, setPalette, resetDemo } = useApp()
 
   return (
     <div>
@@ -149,6 +149,31 @@ export default function Settings() {
           <p className="mt-4 text-xs text-slate-400">
             Your pick is saved on this device — colors, sidebar, even the logo follow the theme.
           </p>
+        </Card>
+
+        <Card title="Your data" sub="Everything you do here is saved on this device automatically.">
+          <ul className="space-y-2 text-[13px] text-slate-600 dark:text-slate-300">
+            <li className="flex items-start gap-2">
+              <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-sage-600" strokeWidth={2.5} /> New leads, messages, tasks & notes persist across reloads
+            </li>
+            <li className="flex items-start gap-2">
+              <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-sage-600" strokeWidth={2.5} /> Theme, layout & connections remembered
+            </li>
+          </ul>
+          <div className="mt-4 flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50/60 p-3 dark:border-white/10 dark:bg-white/5">
+            <div className="min-w-0">
+              <p className="text-[13px] font-medium text-slate-700 dark:text-slate-200">Reset demo data</p>
+              <p className="text-xs text-slate-400">Wipe your changes and reload the fresh sample.</p>
+            </div>
+            <Btn
+              variant="outline"
+              onClick={() => {
+                if (confirm('Reset the demo to its original sample data? This clears anything you’ve added on this device.')) resetDemo()
+              }}
+            >
+              <RotateCcw className="h-3.5 w-3.5" /> Reset
+            </Btn>
+          </div>
         </Card>
       </div>
 

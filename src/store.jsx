@@ -4,6 +4,7 @@ import {
   SEED_TASKS,
   SEED_CONNECTIONS,
   SEED_AGENT_INTROS,
+  SEED_MESSAGES,
   STATUSES,
   NEXT_ACTION_LABEL,
   TASK_STATUSES,
@@ -20,6 +21,21 @@ import {
 const Ctx = createContext(null)
 export const useApp = () => useContext(Ctx)
 
+/* ---------- persistence: your data survives reloads ----------
+   Bump PERSIST_VERSION whenever the seed data shape changes so
+   returning users get the fresh demo instead of a stale cache. */
+const PERSIST_KEY = 'msl-state'
+const PERSIST_VERSION = 'v1'
+const loadSaved = () => {
+  try {
+    const raw = JSON.parse(localStorage.getItem(PERSIST_KEY))
+    return raw && raw.v === PERSIST_VERSION ? raw.data : null
+  } catch {
+    return null
+  }
+}
+const SAVED = loadSaved()
+
 const DEFAULT_CRM = {
   q: '',
   status: 'All',
@@ -33,20 +49,23 @@ const DEFAULT_CRM = {
 
 export function AppProvider({ children }) {
   const [view, setView] = useState({ page: 'dashboard' })
-  const [borrowers, setBorrowers] = useState(SEED_BORROWERS)
-  const [tasks, setTasks] = useState(SEED_TASKS)
+  const [borrowers, setBorrowers] = useState(SAVED?.borrowers ?? SEED_BORROWERS)
+  const [tasks, setTasks] = useState(SAVED?.tasks ?? SEED_TASKS)
+  const [messages, setMessages] = useState(SAVED?.messages ?? SEED_MESSAGES)
   const [toasts, setToasts] = useState([])
   const [crm, setCrmState] = useState(DEFAULT_CRM)
-  const [connections, setConnections] = useState(SEED_CONNECTIONS)
+  const [connections, setConnections] = useState(SAVED?.connections ?? SEED_CONNECTIONS)
   const [seat, setSeatState] = useState('julene') // 'team' or an officer id; defaults to the signed-in officer
-  const [notifPrefs, setNotifPrefs] = useState({
-    overdue: true,
-    tasks: true,
-    applyLeads: true,
-    rateLocks: true,
-    digest: true,
-    weekly: false,
-  })
+  const [notifPrefs, setNotifPrefs] = useState(
+    SAVED?.notifPrefs ?? {
+      overdue: true,
+      tasks: true,
+      applyLeads: true,
+      rateLocks: true,
+      digest: true,
+      weekly: false,
+    },
+  )
   const [signedIn, setSignedIn] = useState(false)
   const [theme, setTheme] = useState(() => {
     try {
@@ -115,6 +134,15 @@ export function AppProvider({ children }) {
     window.scrollTo({ top: 0 })
   }, [])
 
+  const resetDemo = useCallback(() => {
+    try {
+      localStorage.removeItem(PERSIST_KEY)
+    } catch {
+      /* ignore */
+    }
+    window.location.reload()
+  }, [])
+
   /* ---------- toasts ---------- */
   const toast = useCallback((text, emoji = '✓') => {
     const id = ++idSeq.current
@@ -145,11 +173,13 @@ export function AppProvider({ children }) {
      The whole pitch: you don't NEED both programs to work together —
      but link them and everything flows by itself. Holly is linked
      (the flawless path); Bree & Carl still work by phone and email. */
-  const [agentLinks, setAgentLinks] = useState({
-    holly: { status: 'connected', since: d(-30) },
-    bree: { status: 'none' },
-    carl: { status: 'none' },
-  })
+  const [agentLinks, setAgentLinks] = useState(
+    SAVED?.agentLinks ?? {
+      holly: { status: 'connected', since: d(-30) },
+      bree: { status: 'none' },
+      carl: { status: 'none' },
+    },
+  )
 
   const connectAgent = useCallback(
     (agentId) => {
@@ -376,8 +406,48 @@ export function AppProvider({ children }) {
     [patchBorrower, toast],
   )
 
+  /* ---------- two-way messaging (the Inbox) ---------- */
+  const CANNED_REPLIES = [
+    'Got it, thank you!',
+    'Sounds good 👍',
+    'Perfect — appreciate the update!',
+    'Okay, I’ll take care of that today.',
+    'Thanks for keeping me posted!',
+    'Great, talk soon!',
+  ]
+
+  const sendMessage = useCallback(
+    (bid, channel, body) => {
+      const text = (body ?? '').trim()
+      if (!text) return
+      setMessages((m) => ({
+        ...m,
+        [bid]: [...(m[bid] ?? []), { id: 'msg' + ++idSeq.current, dir: 'out', channel, body: text, at: new Date().toISOString(), read: true }],
+      }))
+      const preview = text.length > 44 ? text.slice(0, 44) + '…' : text
+      patchBorrower(bid, (b) => logEvent({ ...b, lastContact: d(0) }, channel, `${channel === 'email' ? 'Email' : 'Text'} sent — “${preview}”`))
+      // demo realism: the borrower replies a moment later so the thread feels live
+      setTimeout(() => {
+        setMessages((m) => {
+          const thread = m[bid] ?? []
+          const reply = CANNED_REPLIES[thread.length % CANNED_REPLIES.length]
+          return { ...m, [bid]: [...thread, { id: 'msg' + ++idSeq.current, dir: 'in', channel, body: reply, at: new Date().toISOString(), read: false }] }
+        })
+      }, 2400)
+    },
+    [patchBorrower],
+  )
+
+  const markRead = useCallback((bid) => {
+    setMessages((m) => {
+      const thread = m[bid]
+      if (!thread || !thread.some((x) => x.dir === 'in' && !x.read)) return m
+      return { ...m, [bid]: thread.map((x) => (x.dir === 'in' ? { ...x, read: true } : x)) }
+    })
+  }, [])
+
   /* ---------- reciprocity: buyer intros sent TO agents ---------- */
-  const [agentIntros, setAgentIntros] = useState(SEED_AGENT_INTROS)
+  const [agentIntros, setAgentIntros] = useState(SAVED?.agentIntros ?? SEED_AGENT_INTROS)
 
   const logIntro = useCallback(
     (agentId, name, note = '') => {
@@ -430,6 +500,18 @@ export function AppProvider({ children }) {
     return { active, newThisWeek, waitingDocs, underwriting, readyToClose, overdue, stuck, todays, activity }
   }, [borrowers, tasks, seat])
 
+  /* ---------- persist everything that's "the user's data" ---------- */
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        PERSIST_KEY,
+        JSON.stringify({ v: PERSIST_VERSION, data: { borrowers, tasks, messages, connections, agentIntros, agentLinks, notifPrefs } }),
+      )
+    } catch {
+      /* storage unavailable (private mode) — stays in memory this session */
+    }
+  }, [borrowers, tasks, messages, connections, agentIntros, agentLinks, notifPrefs])
+
   const value = {
     view,
     go,
@@ -455,6 +537,10 @@ export function AppProvider({ children }) {
     retargetTask,
     celebrate,
     logCommunication,
+    messages,
+    sendMessage,
+    markRead,
+    resetDemo,
     agentIntros,
     logIntro,
     agentLinks,
