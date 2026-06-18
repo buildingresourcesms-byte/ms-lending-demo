@@ -17,6 +17,7 @@ import {
   isStuck,
   isClosedOut,
 } from './data.js'
+import { backendProvider, fetchInbox, sendViaBackend } from './api.js'
 
 const Ctx = createContext(null)
 export const useApp = () => useContext(Ctx)
@@ -35,6 +36,26 @@ const loadSaved = () => {
   }
 }
 const SAVED = loadSaved()
+
+/* Sequence ids (msgNNN, bNNN, tNNN, nNNN) are minted from a counter that
+   resets each load — but state persists in localStorage, so the counter must
+   start ABOVE any saved id or new ids collide with old ones (duplicate React
+   keys → duplicated/dropped messages). Scan saved data for the highest suffix. */
+const maxSavedSeq = (saved) => {
+  let max = 100
+  if (!saved) return max
+  const scan = (id) => {
+    const n = parseInt(String(id).replace(/^\D+/, ''), 10)
+    if (Number.isFinite(n) && n > max) max = n
+  }
+  Object.values(saved.messages ?? {}).forEach((thread) => (thread ?? []).forEach((m) => scan(m.id)))
+  ;(saved.borrowers ?? []).forEach((b) => {
+    scan(b.id)
+    ;(b.notes ?? []).forEach((note) => scan(note.id))
+  })
+  ;(saved.tasks ?? []).forEach((t) => scan(t.id))
+  return max
+}
 
 const DEFAULT_CRM = {
   q: '',
@@ -90,7 +111,10 @@ export function AppProvider({ children }) {
       return 'classic'
     }
   })
-  const idSeq = useRef(100)
+  // real two-way mail backend: 'outlook' | 'gmail' | null (null = demo / not connected).
+  // Probed once from /api/health — absent on the static demo, so it stays null there.
+  const [mailBackend, setMailBackend] = useState(null)
+  const idSeq = useRef(maxSavedSeq(SAVED))
 
   const setNotifPref = useCallback((key, val) => setNotifPrefs((p) => ({ ...p, [key]: val })), [])
 
@@ -146,6 +170,17 @@ export function AppProvider({ children }) {
     if (palette === 'classic') delete root.dataset.theme
     else root.dataset.theme = palette
   }, [palette])
+
+  // detect a connected real mailbox (Outlook/Gmail backend) once on load
+  useEffect(() => {
+    let alive = true
+    backendProvider()
+      .then((p) => alive && setMailBackend(p))
+      .catch(() => {})
+    return () => {
+      alive = false
+    }
+  }, [])
 
   const currentOfficer = seat === 'team' ? null : officerById(seat)
 
@@ -441,20 +476,39 @@ export function AppProvider({ children }) {
       const text = (body ?? '').trim()
       if (!text) return
       const mid = 'msg' + ++idSeq.current
-      const isRealEmail = channel === 'email' && !!(emailCfg?.serviceId && emailCfg?.templateId && emailCfg?.publicKey)
+      const emailJsReady = channel === 'email' && !!(emailCfg?.serviceId && emailCfg?.templateId && emailCfg?.publicKey)
+      const useBackend = channel === 'email' && !!mailBackend // real Outlook/Gmail send
+      const sendingLive = useBackend || emailJsReady
 
       // optimistic: the message appears instantly
       setMessages((m) => ({
         ...m,
-        [bid]: [...(m[bid] ?? []), { id: mid, dir: 'out', channel, body: text, at: new Date().toISOString(), read: true, status: isRealEmail ? 'sending' : 'sent', real: false }],
+        [bid]: [...(m[bid] ?? []), { id: mid, dir: 'out', channel, body: text, at: new Date().toISOString(), read: true, status: sendingLive ? 'sending' : 'sent', real: false }],
       }))
       const preview = text.length > 44 ? text.slice(0, 44) + '…' : text
       patchBorrower(bid, (b) => logEvent({ ...b, lastContact: d(0) }, channel, `${channel === 'email' ? 'Email' : 'Text'} sent — “${preview}”`))
 
-      if (isRealEmail) {
-        // actually send through the user's connected email (EmailJS, no backend)
-        const b = borrowers.find((x) => x.id === bid)
-        const officer = officerById(b?.officerId ?? (seat === 'team' ? 'michelle' : seat))
+      const b = borrowers.find((x) => x.id === bid)
+      const officer = officerById(b?.officerId ?? (seat === 'team' ? 'michelle' : seat))
+
+      if (useBackend) {
+        // send through the real connected mailbox (Outlook / Gmail backend)
+        ;(async () => {
+          try {
+            await sendViaBackend({
+              to: b?.email,
+              subject: opts.subject || 'Update on your loan with MS Lending',
+              body: text,
+            })
+            setMessages((m) => ({ ...m, [bid]: (m[bid] ?? []).map((x) => (x.id === mid ? { ...x, status: 'sent', real: true } : x)) }))
+            toast(`Email sent to ${b?.name?.split(' ')[0] ?? 'borrower'} ✓`, '📧')
+          } catch {
+            setMessages((m) => ({ ...m, [bid]: (m[bid] ?? []).map((x) => (x.id === mid ? { ...x, status: 'failed' } : x)) }))
+            toast('Email didn’t send — check your mailbox connection', '⚠️')
+          }
+        })()
+      } else if (emailJsReady) {
+        // fallback: send through EmailJS (client-side, no backend)
         ;(async () => {
           try {
             const emailjs = (await import('@emailjs/browser')).default
@@ -489,7 +543,7 @@ export function AppProvider({ children }) {
         }, 2400)
       }
     },
-    [patchBorrower, toast, emailCfg, borrowers, seat],
+    [patchBorrower, toast, emailCfg, borrowers, seat, mailBackend],
   )
 
   const sendTestEmail = useCallback(
@@ -626,6 +680,7 @@ export function AppProvider({ children }) {
     emailCfg,
     setEmailCfg,
     emailReady,
+    mailBackend,
     sendTestEmail,
     agentIntros,
     logIntro,

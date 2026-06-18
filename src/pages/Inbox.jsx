@@ -26,7 +26,7 @@ function TypingBubble() {
 }
 
 export default function Inbox() {
-  const { borrowers, messages, connections, sendMessage, markRead, openLoan, seat, currentOfficer, emailReady, go } = useApp()
+  const { borrowers, messages, connections, sendMessage, markRead, openLoan, seat, currentOfficer, emailReady, mailBackend, go } = useApp()
   const [selectedId, setSelectedId] = useState(null)
   const [mobileThread, setMobileThread] = useState(false)
   const [draft, setDraft] = useState('')
@@ -72,7 +72,8 @@ export default function Inbox() {
     markRead(id)
   }
 
-  const realEmail = channel === 'email' && emailReady
+  const realEmail = channel === 'email' && (emailReady || !!mailBackend)
+  const mailLabel = mailBackend === 'outlook' ? 'your Outlook' : mailBackend === 'gmail' ? 'your Gmail' : 'your email'
 
   const send = () => {
     if (!draft.trim() || !active) return
@@ -228,7 +229,7 @@ export default function Inbox() {
                   </div>
                   <span className="flex items-center gap-1 text-[11px] text-slate-400">
                     {realEmail ? (
-                      <><span className="h-1.5 w-1.5 rounded-full bg-sage-500" /> sends for real from your email</>
+                      <><span className="h-1.5 w-1.5 rounded-full bg-sage-500" /> sends for real from {mailLabel}</>
                     ) : channel === 'email' ? (
                       <button onClick={() => go('settings')} className="inline-flex items-center gap-1 hover:text-navy-700 dark:hover:text-white">
                         <Plug className="h-3 w-3" /> in-app only — connect your email to send for real

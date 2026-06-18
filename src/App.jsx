@@ -29,6 +29,7 @@ import {
   Moon,
   LogOut,
   MessageSquare,
+  Mail,
 } from 'lucide-react'
 import { AppProvider, useApp } from './store.jsx'
 import { OFFICERS, LOAN_TYPES, SOURCES, INTEGRATIONS, agentById, daysUntil, rateLockStatus, timeOfDay, SKY, DISCLAIMER } from './data.js'
@@ -42,6 +43,7 @@ import Tasks from './pages/Tasks.jsx'
 import Portal from './pages/Portal.jsx'
 import Apply from './pages/Apply.jsx'
 import Inbox from './pages/Inbox.jsx'
+import LiveMail from './pages/LiveMail.jsx'
 import Reports from './pages/Reports.jsx'
 import Calendar from './pages/Calendar.jsx'
 import Partners from './pages/Partners.jsx'
@@ -59,6 +61,7 @@ const NAV_MAIN = [
   { page: 'partners', label: 'Agent Partners', icon: Building2 },
   { page: 'borrowers', label: 'Borrowers', icon: Users },
   { page: 'inbox', label: 'Inbox', icon: InboxIcon },
+  { page: 'livemail', label: 'Live Mail', icon: Mail },
   { page: 'tasks', label: 'Tasks', icon: ListChecks },
   { page: 'reports', label: 'Reports', icon: BarChart3 },
 ]
@@ -453,6 +456,7 @@ const PALETTE_PAGES = [
   ['partners', 'Agent Partners'],
   ['borrowers', 'Borrowers'],
   ['inbox', 'Inbox'],
+  ['livemail', 'Live Mail'],
   ['tasks', 'Tasks'],
   ['reports', 'Reports'],
   ['apply', 'Apply Intake'],
@@ -893,6 +897,7 @@ function Shell() {
           {view.page === 'loan' && <LoanFile key={view.id} id={view.id} initialTab={view.tab} />}
           {view.page === 'tasks' && <Tasks />}
           {view.page === 'inbox' && <Inbox />}
+          {view.page === 'livemail' && <LiveMail />}
           {view.page === 'reports' && <Reports />}
           {view.page === 'calendar' && <Calendar />}
           {view.page === 'partners' && <Partners />}
