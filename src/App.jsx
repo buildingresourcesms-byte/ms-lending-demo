@@ -32,8 +32,10 @@ import {
 } from 'lucide-react'
 import { AppProvider, useApp } from './store.jsx'
 import { OFFICERS, LOAN_TYPES, SOURCES, INTEGRATIONS, agentById, daysUntil, rateLockStatus, timeOfDay, SKY, DISCLAIMER } from './data.js'
+import { buildSuggestions } from './autopilot.js'
 import { BrandMark, Btn, Modal, Field, Select, SearchInput, inputCls, cx } from './ui.jsx'
 import Dashboard from './pages/Dashboard.jsx'
+import Autopilot from './pages/Autopilot.jsx'
 import Borrowers from './pages/Borrowers.jsx'
 import LoanFile from './pages/LoanFile.jsx'
 import Tasks from './pages/Tasks.jsx'
@@ -52,6 +54,7 @@ const MS_CITIES = ['Brandon', 'Flowood', 'Jackson', 'Madison', 'Pearl', 'Ridgela
 
 const NAV_MAIN = [
   { page: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { page: 'autopilot', label: 'Autopilot', icon: Sparkles },
   { page: 'calendar', label: 'Calendar', icon: CalendarDays },
   { page: 'partners', label: 'Agent Partners', icon: Building2 },
   { page: 'borrowers', label: 'Borrowers', icon: Users },
@@ -324,12 +327,13 @@ function SeatSwitcher() {
 }
 
 function Sidebar({ mobileOpen, onCloseMobile }) {
-  const { view, go, connections, messages, borrowers, seat } = useApp()
+  const { view, go, connections, messages, borrowers, seat, apHandled } = useApp()
   const activePage = view.page === 'loan' ? 'borrowers' : view.page
   const connectedIntegrations = INTEGRATIONS.filter((it) => connections[it.id])
   const inboxUnread = borrowers
     .filter((b) => seat === 'team' || b.officerId === seat)
     .reduce((n, b) => n + (messages[b.id] ?? []).filter((m) => m.dir === 'in' && !m.read).length, 0)
+  const autopilotCount = buildSuggestions(borrowers, seat, apHandled).length
   const onGo = (page) => {
     go(page)
     onCloseMobile()
@@ -356,7 +360,7 @@ function Sidebar({ mobileOpen, onCloseMobile }) {
             {...item}
             active={activePage === item.page}
             onGo={onGo}
-            badge={item.page === 'inbox' ? inboxUnread : undefined}
+            badge={item.page === 'inbox' ? inboxUnread : item.page === 'autopilot' ? autopilotCount : undefined}
           />
         ))}
         <p className="px-2.5 pb-1 pt-5 text-[10px] font-semibold uppercase tracking-wider text-navy-500">
@@ -444,6 +448,7 @@ function ThemeToggle() {
 /* ---------------- ⌘K command palette ---------------- */
 const PALETTE_PAGES = [
   ['dashboard', 'Dashboard'],
+  ['autopilot', 'Autopilot'],
   ['calendar', 'Calendar'],
   ['partners', 'Agent Partners'],
   ['borrowers', 'Borrowers'],
@@ -883,6 +888,7 @@ function Shell() {
         <Topbar onMenu={() => setMenuOpen(true)} onNewLead={() => setLeadOpen(true)} onOpenPalette={() => setPaletteOpen(true)} />
         <main className="mx-auto max-w-6xl px-4 pb-24 pt-6 sm:px-6 lg:pb-6">
           {view.page === 'dashboard' && <Dashboard />}
+          {view.page === 'autopilot' && <Autopilot />}
           {view.page === 'borrowers' && <Borrowers onNewLead={() => setLeadOpen(true)} />}
           {view.page === 'loan' && <LoanFile key={view.id} id={view.id} initialTab={view.tab} />}
           {view.page === 'tasks' && <Tasks />}

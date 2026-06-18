@@ -1,0 +1,112 @@
+/* ============================================================
+   AUTOPILOT — the "runs itself, with human review" engine.
+   Pure logic: given the pipeline, it decides the next action for
+   each loan and pre-writes the message. Julene reviews & sends.
+   ============================================================ */
+import {
+  isOverdue,
+  isStuck,
+  isClosedOut,
+  missingDocs,
+  daysInStage,
+  daysUntil,
+  NEXT_STEP,
+  officerById,
+  agentById,
+  money,
+  fmtDateFull,
+} from './data.js'
+
+/* warm, on-brand drafts — channel + (subject) + body */
+function draftFor(kind, b, officer) {
+  const first = b.name.split(' ')[0]
+  const off = officer?.name?.split(' ')[0] ?? 'your loan officer'
+  const step = (NEXT_STEP[b.status] ?? '').replace(/\.$/, '')
+  switch (kind) {
+    case 'referral-callback': {
+      const agent = b.agentId ? agentById(b.agentId) : null
+      return {
+        channel: 'sms',
+        body: `Hi ${first}! This is ${off} with MS Lending${agent ? ` — ${agent.name.split(' ')[0]} connected us about your home financing` : ''}. I’d love to help you get pre-qualified. Do you have a few minutes today for a quick call?`,
+      }
+    }
+    case 'overdue-followup':
+      return {
+        channel: 'sms',
+        body: `Hi ${first}, ${off} here at MS Lending — just checking in on your ${b.loanType} loan. ${step ? step.charAt(0).toUpperCase() + step.slice(1) + '.' : ''} Anything I can do to help keep things moving?`,
+      }
+    case 'closing-soon':
+      return {
+        channel: 'email',
+        subject: `Your closing is coming up — ${fmtDateFull(b.estClosing)}`,
+        body: `Hi ${first},\n\nExciting — your closing is set for ${fmtDateFull(b.estClosing)}! I’m confirming the final details now and will send your exact numbers shortly. If anything has changed on your end, just reply here.\n\nAlmost home,\n${officer?.name ?? 'MS Lending'}\nMS Lending`,
+      }
+    case 'doc-request': {
+      const missing = missingDocs(b).map((x) => x.name)
+      const list = missing.length ? missing.map((n) => `• ${n}`).join('\n') : '• (your loan officer will confirm)'
+      return {
+        channel: 'email',
+        subject: `A few documents to keep your ${b.loanType} loan moving`,
+        body: `Hi ${first},\n\nWe’re ready for the next step on your loan — we just need a few items from you:\n\n${list}\n\nA clear phone photo of each works great. Reply here or upload anytime and we’ll take it from there.\n\nThank you,\n${officer?.name ?? 'MS Lending'}\nMS Lending`,
+      }
+    }
+    case 'new-lead-intro':
+      return {
+        channel: 'sms',
+        body: `Hi ${first}, this is ${off} at MS Lending following up on your inquiry. I’d love to walk you through your options and get you pre-qualified — when’s a good time to chat?`,
+      }
+    case 'send-preapproval':
+      return {
+        channel: 'email',
+        subject: `You’re pre-approved with MS Lending 🎉`,
+        body: `Hi ${first},\n\nGreat news — you’re pre-approved${b.amount ? ` for up to ${money(b.amount)}` : ''}! Your pre-approval letter is attached/available, and you’re ready to make offers with confidence.\n\nLet me know the moment you find a home you love and we’ll move fast.\n\nCongratulations,\n${officer?.name ?? 'MS Lending'}\nMS Lending`,
+      }
+    case 'stuck':
+      return {
+        channel: 'sms',
+        body: `Hi ${first}, ${off} with MS Lending — checking in to make sure nothing’s stuck on your loan. ${step ? step.charAt(0).toUpperCase() + step.slice(1) + '.' : ''} Reach out anytime!`,
+      }
+    default:
+      return { channel: 'sms', body: `Hi ${first}, checking in on your loan — ${off} at MS Lending.` }
+  }
+}
+
+/* one prioritized rule per loan (first match wins) */
+const RULES = [
+  { kind: 'referral-callback', priority: 1, label: 'Call back referral', match: (b) => b.viaReferral && b.status === 'New Lead', why: (b) => `Referral${b.agentId && agentById(b.agentId) ? ` from ${agentById(b.agentId).name.split(' ')[0]}` : ''} — speed wins these` },
+  { kind: 'overdue-followup', priority: 1, label: 'Overdue follow-up', match: (b) => isOverdue(b), why: (b) => `Follow-up ${-daysUntil(b.nextFollowUp)}d overdue` },
+  { kind: 'closing-soon', priority: 2, label: 'Confirm closing', match: (b) => b.estClosing && daysUntil(b.estClosing) >= 0 && daysUntil(b.estClosing) <= 7, why: (b) => `Closes ${fmtDateFull(b.estClosing)}` },
+  { kind: 'doc-request', priority: 2, label: 'Request documents', match: (b) => b.status === 'Documents Needed' && missingDocs(b).length > 0, why: (b) => `${missingDocs(b).length} document${missingDocs(b).length > 1 ? 's' : ''} outstanding` },
+  { kind: 'new-lead-intro', priority: 2, label: 'Intro a new lead', match: (b) => b.status === 'New Lead', why: () => 'New lead — make first contact' },
+  { kind: 'send-preapproval', priority: 3, label: 'Send pre-approval', match: (b) => b.status === 'Pre-Approved', why: () => 'Pre-approved — get them shopping' },
+  { kind: 'stuck', priority: 3, label: 'Unstick a file', match: (b) => isStuck(b), why: (b) => `${daysInStage(b)} days in ${b.status}` },
+]
+
+export function buildSuggestions(borrowers, seat, handled = {}) {
+  const mine = (seat === 'team' ? borrowers : borrowers.filter((b) => b.officerId === seat)).filter((b) => !isClosedOut(b))
+  const out = []
+  for (const b of mine) {
+    const rule = RULES.find((r) => r.match(b))
+    if (!rule) continue
+    const key = `${b.id}:${rule.kind}`
+    // skip anything acted on / snoozed whose suppression window hasn't passed
+    if (handled[key] && daysUntil(handled[key]) >= 0) continue
+    const officer = officerById(b.officerId)
+    const draft = draftFor(rule.kind, b, officer)
+    out.push({
+      key,
+      borrowerId: b.id,
+      name: b.name,
+      status: b.status,
+      kind: rule.kind,
+      label: rule.label,
+      priority: rule.priority,
+      why: rule.why(b),
+      channel: draft.channel,
+      subject: draft.subject ?? '',
+      body: draft.body,
+      docRequest: rule.kind === 'doc-request',
+    })
+  }
+  return out.sort((a, z) => a.priority - z.priority)
+}

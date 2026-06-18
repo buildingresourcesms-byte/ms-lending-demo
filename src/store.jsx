@@ -52,6 +52,7 @@ export function AppProvider({ children }) {
   const [borrowers, setBorrowers] = useState(SAVED?.borrowers ?? SEED_BORROWERS)
   const [tasks, setTasks] = useState(SAVED?.tasks ?? SEED_TASKS)
   const [messages, setMessages] = useState(SAVED?.messages ?? SEED_MESSAGES)
+  const [apHandled, setApHandled] = useState(SAVED?.apHandled ?? {}) // autopilot suggestions acted on / snoozed
   const [toasts, setToasts] = useState([])
   const [crm, setCrmState] = useState(DEFAULT_CRM)
   const [connections, setConnections] = useState(SAVED?.connections ?? SEED_CONNECTIONS)
@@ -512,6 +513,11 @@ export function AppProvider({ children }) {
     [seat],
   )
 
+  /* autopilot: suppress a suggestion for N days after acting/snoozing */
+  const markAutopilotDone = useCallback((key, days = 3) => {
+    setApHandled((m) => ({ ...m, [key]: d(days) }))
+  }, [])
+
   const markRead = useCallback((bid) => {
     setMessages((m) => {
       const thread = m[bid]
@@ -579,12 +585,12 @@ export function AppProvider({ children }) {
     try {
       localStorage.setItem(
         PERSIST_KEY,
-        JSON.stringify({ v: PERSIST_VERSION, data: { borrowers, tasks, messages, connections, agentIntros, agentLinks, notifPrefs } }),
+        JSON.stringify({ v: PERSIST_VERSION, data: { borrowers, tasks, messages, connections, agentIntros, agentLinks, notifPrefs, apHandled } }),
       )
     } catch {
       /* storage unavailable (private mode) — stays in memory this session */
     }
-  }, [borrowers, tasks, messages, connections, agentIntros, agentLinks, notifPrefs])
+  }, [borrowers, tasks, messages, connections, agentIntros, agentLinks, notifPrefs, apHandled])
 
   const value = {
     view,
@@ -614,6 +620,8 @@ export function AppProvider({ children }) {
     messages,
     sendMessage,
     markRead,
+    apHandled,
+    markAutopilotDone,
     resetDemo,
     emailCfg,
     setEmailCfg,
