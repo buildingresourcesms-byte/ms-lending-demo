@@ -75,6 +75,13 @@ export function AppProvider({ children }) {
     }
   })
   const [celebrate, setCelebrate] = useState(0)
+  const [emailCfg, setEmailCfgState] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('msl-emailjs')) || null
+    } catch {
+      return null
+    }
+  })
   const [palette, setPaletteState] = useState(() => {
     try {
       return localStorage.getItem('msl-palette') ?? 'classic'
@@ -114,6 +121,18 @@ export function AppProvider({ children }) {
       /* storage may be unavailable (private mode); theme still applies */
     }
   }, [])
+
+  /* EmailJS connection (kept in its own key so Reset demo data doesn't unplug it) */
+  const setEmailCfg = useCallback((cfg) => {
+    setEmailCfgState(cfg)
+    try {
+      if (cfg) localStorage.setItem('msl-emailjs', JSON.stringify(cfg))
+      else localStorage.removeItem('msl-emailjs')
+    } catch {
+      /* ignore */
+    }
+  }, [])
+  const emailReady = !!(emailCfg?.serviceId && emailCfg?.templateId && emailCfg?.publicKey)
 
   useEffect(() => {
     const root = document.documentElement
@@ -417,25 +436,80 @@ export function AppProvider({ children }) {
   ]
 
   const sendMessage = useCallback(
-    (bid, channel, body) => {
+    (bid, channel, body, opts = {}) => {
       const text = (body ?? '').trim()
       if (!text) return
+      const mid = 'msg' + ++idSeq.current
+      const isRealEmail = channel === 'email' && !!(emailCfg?.serviceId && emailCfg?.templateId && emailCfg?.publicKey)
+
+      // optimistic: the message appears instantly
       setMessages((m) => ({
         ...m,
-        [bid]: [...(m[bid] ?? []), { id: 'msg' + ++idSeq.current, dir: 'out', channel, body: text, at: new Date().toISOString(), read: true }],
+        [bid]: [...(m[bid] ?? []), { id: mid, dir: 'out', channel, body: text, at: new Date().toISOString(), read: true, status: isRealEmail ? 'sending' : 'sent', real: false }],
       }))
       const preview = text.length > 44 ? text.slice(0, 44) + '…' : text
       patchBorrower(bid, (b) => logEvent({ ...b, lastContact: d(0) }, channel, `${channel === 'email' ? 'Email' : 'Text'} sent — “${preview}”`))
-      // demo realism: the borrower replies a moment later so the thread feels live
-      setTimeout(() => {
-        setMessages((m) => {
-          const thread = m[bid] ?? []
-          const reply = CANNED_REPLIES[thread.length % CANNED_REPLIES.length]
-          return { ...m, [bid]: [...thread, { id: 'msg' + ++idSeq.current, dir: 'in', channel, body: reply, at: new Date().toISOString(), read: false }] }
-        })
-      }, 2400)
+
+      if (isRealEmail) {
+        // actually send through the user's connected email (EmailJS, no backend)
+        const b = borrowers.find((x) => x.id === bid)
+        const officer = officerById(b?.officerId ?? (seat === 'team' ? 'michelle' : seat))
+        ;(async () => {
+          try {
+            const emailjs = (await import('@emailjs/browser')).default
+            await emailjs.send(
+              emailCfg.serviceId,
+              emailCfg.templateId,
+              {
+                to_email: b?.email,
+                to_name: b?.name,
+                subject: opts.subject || `Update on your loan with MS Lending`,
+                message: text,
+                from_name: officer?.name ?? 'MS Lending',
+                reply_to: emailCfg.replyTo || officer?.email || '',
+              },
+              { publicKey: emailCfg.publicKey },
+            )
+            setMessages((m) => ({ ...m, [bid]: (m[bid] ?? []).map((x) => (x.id === mid ? { ...x, status: 'sent', real: true } : x)) }))
+            toast(`Email delivered to ${b?.name?.split(' ')[0] ?? 'borrower'} ✓`, '📧')
+          } catch {
+            setMessages((m) => ({ ...m, [bid]: (m[bid] ?? []).map((x) => (x.id === mid ? { ...x, status: 'failed' } : x)) }))
+            toast('Email didn’t send — check Email setup in Settings', '⚠️')
+          }
+        })()
+      } else if (opts.demoReply !== false) {
+        // demo realism (in-app only): the borrower replies a moment later
+        setTimeout(() => {
+          setMessages((m) => {
+            const thread = m[bid] ?? []
+            const reply = CANNED_REPLIES[thread.length % CANNED_REPLIES.length]
+            return { ...m, [bid]: [...thread, { id: 'msg' + ++idSeq.current, dir: 'in', channel, body: reply, at: new Date().toISOString(), read: false }] }
+          })
+        }, 2400)
+      }
     },
-    [patchBorrower],
+    [patchBorrower, toast, emailCfg, borrowers, seat],
+  )
+
+  const sendTestEmail = useCallback(
+    async (cfg) => {
+      const officer = officerById(seat === 'team' ? 'julene' : seat)
+      const emailjs = (await import('@emailjs/browser')).default
+      return emailjs.send(
+        cfg.serviceId,
+        cfg.templateId,
+        {
+          to_email: cfg.replyTo || officer?.email,
+          to_name: officer?.name ?? 'MS Lending',
+          subject: 'Test from your MS Lending workspace ✓',
+          message: 'If you’re reading this, your workspace can now send real emails to your borrowers. 🎉',
+          from_name: officer?.name ?? 'MS Lending',
+          reply_to: cfg.replyTo || officer?.email || '',
+        },
+        { publicKey: cfg.publicKey },
+      )
+    },
+    [seat],
   )
 
   const markRead = useCallback((bid) => {
@@ -541,6 +615,10 @@ export function AppProvider({ children }) {
     sendMessage,
     markRead,
     resetDemo,
+    emailCfg,
+    setEmailCfg,
+    emailReady,
+    sendTestEmail,
     agentIntros,
     logIntro,
     agentLinks,

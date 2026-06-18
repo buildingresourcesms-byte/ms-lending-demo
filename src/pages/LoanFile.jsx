@@ -146,7 +146,7 @@ function ContactBar({ b, connections, onPick }) {
 
 /* ---------- compose / log modal (adapts per channel) ---------- */
 export function ComposeModal({ b, channel, connections, officer, onClose }) {
-  const { logCommunication, sendMessage, go } = useApp()
+  const { logCommunication, sendMessage, emailReady, go } = useApp()
   const c = CHANNELS[channel]
   const prov = channelProvider(channel, connections)
   const first = b.name.split(' ')[0]
@@ -190,9 +190,10 @@ export function ComposeModal({ b, channel, connections, officer, onClose }) {
 
   const send = (e) => {
     e.preventDefault()
-    if (channel === 'email' || channel === 'sms') {
-      // a real message — lands in the Inbox thread and the file timeline
-      sendMessage(b.id, channel, channel === 'email' ? `${subject}\n\n${body}` : body)
+    if (channel === 'email') {
+      sendMessage(b.id, 'email', body, { subject })
+    } else if (channel === 'sms') {
+      sendMessage(b.id, 'sms', body)
     } else {
       logCommunication(
         b.id,
@@ -247,7 +248,9 @@ export function ComposeModal({ b, channel, connections, officer, onClose }) {
         <div className="flex items-center justify-between gap-3">
           <p className="flex items-center gap-1.5 text-[11px] text-slate-400">
             <ShieldCheck className="h-3.5 w-3.5 text-sage-500" />
-            Demo — nothing is actually sent; the action is logged to the file.
+            {channel === 'email' && emailReady
+              ? 'Sends for real from your connected email, and logs to the file.'
+              : 'Logged to the file & Inbox. Connect email in Settings to send for real.'}
           </p>
           <div className="flex gap-2">
             <Btn variant="ghost" onClick={onClose}>

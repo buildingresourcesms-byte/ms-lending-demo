@@ -26,7 +26,7 @@ function TypingBubble() {
 }
 
 export default function Inbox() {
-  const { borrowers, messages, connections, sendMessage, markRead, openLoan, seat, currentOfficer } = useApp()
+  const { borrowers, messages, connections, sendMessage, markRead, openLoan, seat, currentOfficer, emailReady, go } = useApp()
   const [selectedId, setSelectedId] = useState(null)
   const [mobileThread, setMobileThread] = useState(false)
   const [draft, setDraft] = useState('')
@@ -72,12 +72,17 @@ export default function Inbox() {
     markRead(id)
   }
 
+  const realEmail = channel === 'email' && emailReady
+
   const send = () => {
     if (!draft.trim() || !active) return
     sendMessage(active.b.id, channel, draft)
     setDraft('')
-    setTyping(true)
-    setTimeout(() => setTyping(false), 2400)
+    // only fake a "typing… reply" for in-app demo channels; real emails get real replies in Gmail
+    if (!realEmail) {
+      setTyping(true)
+      setTimeout(() => setTyping(false), 2400)
+    }
   }
 
   const prov = active ? channelProvider(channel, connections) : null
@@ -188,6 +193,9 @@ export default function Inbox() {
                           <p className="whitespace-pre-wrap text-[13px] leading-relaxed">{m.body}</p>
                           <p className={cx('mt-1 flex items-center justify-end gap-1 text-[10px]', out ? 'text-white/55' : 'text-slate-400')}>
                             {m.channel === 'email' ? 'Email' : 'Text'} · {timeOf(m.at)}
+                            {out && m.status === 'sending' && <span className="ml-0.5 italic">· sending…</span>}
+                            {out && m.status === 'failed' && <span className="ml-0.5 font-medium text-rose-300">· failed</span>}
+                            {out && m.real && <span className="ml-0.5">· sent ✓</span>}
                           </p>
                         </div>
                       </div>
@@ -219,7 +227,13 @@ export default function Inbox() {
                     ))}
                   </div>
                   <span className="flex items-center gap-1 text-[11px] text-slate-400">
-                    {prov ? (
+                    {realEmail ? (
+                      <><span className="h-1.5 w-1.5 rounded-full bg-sage-500" /> sends for real from your email</>
+                    ) : channel === 'email' ? (
+                      <button onClick={() => go('settings')} className="inline-flex items-center gap-1 hover:text-navy-700 dark:hover:text-white">
+                        <Plug className="h-3 w-3" /> in-app only — connect your email to send for real
+                      </button>
+                    ) : prov ? (
                       <><span className="h-1.5 w-1.5 rounded-full bg-sage-500" /> via {prov.name}</>
                     ) : (
                       <><Plug className="h-3 w-3" /> in-app only — connect in Integrations to send for real</>
