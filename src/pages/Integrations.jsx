@@ -336,7 +336,7 @@ function WebsiteApplyCard() {
 }
 
 export default function Integrations() {
-  const { connections } = useApp()
+  const { connections, emailReady, go } = useApp()
   const [cat, setCat] = useState('All')
   const [q, setQ] = useState('')
   const [dialog, setDialog] = useState(null) // the integration being connected/managed
@@ -356,13 +356,47 @@ export default function Integrations() {
     <div>
       <PageHeader
         title="Integrations"
-        sub="Connect MS Lending to the email, social, and tools your team already uses."
+        sub="Email sends for real once connected. The rest are on the roadmap — marked live only when they actually work."
         actions={
-          <Badge cls="bg-sage-50 text-sage-700 ring-sage-600/20" dot="bg-sage-500">
-            {connectedCount} of {INTEGRATIONS.length} connected
-          </Badge>
+          emailReady ? (
+            <Badge cls="bg-sage-50 text-sage-700 ring-sage-600/20" dot="bg-sage-500">Email live</Badge>
+          ) : (
+            <Badge cls="bg-slate-100 text-slate-500 dark:bg-white/10 dark:text-slate-300">Email not connected</Badge>
+          )
         }
       />
+
+      {/* straight talk about what's live */}
+      <div className="mb-4 flex items-start gap-2.5 rounded-xl border border-amber-200/70 bg-amber-50 p-3 text-xs leading-relaxed text-amber-800 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-200">
+        <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
+        <span>
+          <span className="font-semibold">Straight talk:</span> only <span className="font-semibold">Email</span> is a live
+          connection today. The tools further down are placeholders for the production plan — they don’t send or receive yet,
+          and we won’t pretend otherwise.
+        </span>
+      </div>
+
+      {/* the one real connection */}
+      <Card className="mb-4" title="Email — your live connection" sub="Really sends from your own address. No password stored here.">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl" style={{ backgroundColor: '#EA433520' }}>
+              <Mail className="h-5 w-5" style={{ color: '#EA4335' }} strokeWidth={2} />
+            </span>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-navy-950 dark:text-white">Send real email to borrowers & agents</p>
+              <p className="text-xs text-slate-400">Powered by EmailJS — connect once in Settings</p>
+            </div>
+          </div>
+          {emailReady ? (
+            <Badge cls="bg-sage-50 text-sage-700 ring-sage-600/20" dot="bg-sage-500">Live ✓</Badge>
+          ) : (
+            <Btn variant="sage" onClick={() => go('settings')}>
+              <Plug className="h-3.5 w-3.5" /> Connect email
+            </Btn>
+          )}
+        </div>
+      </Card>
 
       {/* featured: website apply-button routing */}
       <WebsiteApplyCard />
@@ -371,8 +405,8 @@ export default function Integrations() {
       {connectedCount > 0 && (
         <Card
           className="mb-4"
-          title="Connected"
-          sub="Live links feeding leads, mail, and documents into your workspace."
+          title="Sample connections (not live)"
+          sub="Illustrating the production plan — these don’t send or receive yet."
         >
           <div className="flex flex-wrap gap-2">
             {INTEGRATIONS.filter((it) => connections[it.id]).map((it) => (
