@@ -155,7 +155,7 @@ export default function Dashboard() {
   return (
     <div className="space-y-5">
       {/* ---------- greeting hero (time-of-day sky) ---------- */}
-      <div className={cx('relative overflow-hidden rounded-2xl bg-gradient-to-br p-5 ring-1 ring-black/[0.04] sm:p-6', sky.grad)}>
+      <div className={cx('glow-ring relative overflow-hidden rounded-2xl bg-gradient-to-br p-5 ring-1 ring-black/[0.04] sm:p-6', sky.grad)}>
         <div className="pointer-events-none absolute inset-0">
           {sky.moon &&
             STARS.map(([top, left], i) => (

@@ -251,6 +251,7 @@ export function Btn({ children, onClick, variant = 'primary', className, type = 
       className={cx(
         'inline-flex items-center justify-center gap-1.5 rounded-lg font-medium transition-all duration-150 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 disabled:pointer-events-none disabled:opacity-50',
         sm ? 'h-7 px-2.5 text-xs' : 'h-9 px-3.5 text-[13px]',
+        (variant === 'primary' || variant === 'sage') && 'glare',
         styles[variant],
         className,
       )}
@@ -349,7 +350,7 @@ export function PageHeader({ title, sub, actions }) {
   return (
     <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
       <div>
-        <h1 className="text-xl font-semibold tracking-tight text-navy-950 dark:text-white">{title}</h1>
+        <h1 className="gradient-text-animated text-xl font-semibold tracking-tight">{title}</h1>
         {sub && <p className="mt-1 text-[13px] text-slate-500 dark:text-slate-400">{sub}</p>}
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}

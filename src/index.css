@@ -350,8 +350,8 @@ html.dark .shiny-text {
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.3s ease;
-  background: radial-gradient(240px circle at var(--mx, 50%) var(--my, 50%),
-    color-mix(in oklab, var(--color-sage-400) 20%, transparent), transparent 60%);
+  background: radial-gradient(300px circle at var(--mx, 50%) var(--my, 50%),
+    color-mix(in oklab, var(--color-sage-400) 32%, transparent), transparent 62%);
 }
 .spotlight-card:hover::before { opacity: 1; }
 @media (hover: none) { .spotlight-card::before { display: none; } }
@@ -368,6 +368,95 @@ html.dark .shiny-text {
   transition: transform 0.6s ease;
 }
 .glare:hover::after { transform: translateX(130%); }
+
+/* ---- app-wide ambient aurora (sits behind the whole workspace) ---- */
+.app-aurora {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.app-aurora::before,
+.app-aurora::after {
+  content: '';
+  position: absolute;
+  width: 65vw;
+  height: 65vw;
+  border-radius: 9999px;
+  filter: blur(96px);
+  opacity: 0.22;
+}
+.app-aurora::before {
+  top: -16vw;
+  left: -12vw;
+  background: radial-gradient(circle, var(--color-sage-400), transparent 60%);
+  animation: aurora-drift 24s ease-in-out infinite;
+}
+.app-aurora::after {
+  right: -14vw;
+  bottom: -18vw;
+  background: radial-gradient(circle, var(--color-navy-500), transparent 60%);
+  animation: aurora-drift 30s ease-in-out infinite reverse;
+}
+html.dark .app-aurora::before,
+html.dark .app-aurora::after { opacity: 0.3; }
+
+/* ---- page-change transition (fires on every navigation) ---- */
+@keyframes page-enter {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.page-enter { animation: page-enter 0.34s cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+/* ---- animated navy→sage gradient text for headings (light + dark) ---- */
+@keyframes gradient-pan { to { background-position: 200% center; } }
+.gradient-text-animated {
+  background-image: linear-gradient(92deg, var(--color-navy-700), var(--color-sage-500), var(--color-navy-600), var(--color-sage-500));
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  animation: gradient-pan 6s linear infinite;
+}
+html.dark .gradient-text-animated {
+  background-image: linear-gradient(92deg, var(--color-navy-100), var(--color-sage-300), var(--color-navy-200), var(--color-sage-300));
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+/* ---- slow rotating gradient glow ring for a focal card ---- */
+@keyframes ring-spin { to { transform: rotate(1turn); } }
+.glow-ring { position: relative; }
+.glow-ring::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: conic-gradient(from 0deg,
+    color-mix(in oklab, var(--color-sage-400) 70%, transparent),
+    transparent 25%,
+    color-mix(in oklab, var(--color-navy-400) 70%, transparent) 50%,
+    transparent 75%,
+    color-mix(in oklab, var(--color-sage-400) 70%, transparent));
+  /* mask shows only the 1.5px border ring */
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  animation: ring-spin 8s linear infinite;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-aurora::before, .app-aurora::after { animation: none; }
+  .gradient-text-animated { animation: none; }
+  .glow-ring::before { animation: none; }
+  .page-enter { animation: none; }
+}
 
 /* keep the shimmer/glow effects from looking broken under reduced motion */
 @media (prefers-reduced-motion: reduce) {

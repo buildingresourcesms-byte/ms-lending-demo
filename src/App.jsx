@@ -887,25 +887,28 @@ function Shell() {
 
   return (
     <div className="min-h-screen">
+      <div className="app-aurora" aria-hidden="true" />
       <Sidebar mobileOpen={menuOpen} onCloseMobile={() => setMenuOpen(false)} />
-      <div className="lg:pl-60">
+      <div className="relative z-[1] lg:pl-60">
         <Topbar onMenu={() => setMenuOpen(true)} onNewLead={() => setLeadOpen(true)} onOpenPalette={() => setPaletteOpen(true)} />
         <main className="mx-auto max-w-6xl px-4 pb-24 pt-6 sm:px-6 lg:pb-6">
-          {view.page === 'dashboard' && <Dashboard />}
-          {view.page === 'autopilot' && <Autopilot />}
-          {view.page === 'borrowers' && <Borrowers onNewLead={() => setLeadOpen(true)} />}
-          {view.page === 'loan' && <LoanFile key={view.id} id={view.id} initialTab={view.tab} />}
-          {view.page === 'tasks' && <Tasks />}
-          {view.page === 'inbox' && <Inbox />}
-          {view.page === 'livemail' && <LiveMail />}
-          {view.page === 'reports' && <Reports />}
-          {view.page === 'calendar' && <Calendar />}
-          {view.page === 'partners' && <Partners />}
-          {view.page === 'profile' && <Profile key={view.id ?? 'me'} />}
-          {view.page === 'portal' && <Portal key={view.id ?? 'default'} initialId={view.id} />}
-          {view.page === 'apply' && <Apply />}
-          {view.page === 'integrations' && <Integrations />}
-          {view.page === 'settings' && <Settings />}
+          <div key={view.page === 'loan' ? `loan-${view.id}` : view.page} className="page-enter">
+            {view.page === 'dashboard' && <Dashboard />}
+            {view.page === 'autopilot' && <Autopilot />}
+            {view.page === 'borrowers' && <Borrowers onNewLead={() => setLeadOpen(true)} />}
+            {view.page === 'loan' && <LoanFile key={view.id} id={view.id} initialTab={view.tab} />}
+            {view.page === 'tasks' && <Tasks />}
+            {view.page === 'inbox' && <Inbox />}
+            {view.page === 'livemail' && <LiveMail />}
+            {view.page === 'reports' && <Reports />}
+            {view.page === 'calendar' && <Calendar />}
+            {view.page === 'partners' && <Partners />}
+            {view.page === 'profile' && <Profile key={view.id ?? 'me'} />}
+            {view.page === 'portal' && <Portal key={view.id ?? 'default'} initialId={view.id} />}
+            {view.page === 'apply' && <Apply />}
+            {view.page === 'integrations' && <Integrations />}
+            {view.page === 'settings' && <Settings />}
+          </div>
         </main>
         <footer className="mx-auto max-w-6xl px-4 pb-8 sm:px-6">
           <p className="border-t border-slate-200/70 pt-4 text-center text-[11px] text-slate-400 dark:border-white/10">
