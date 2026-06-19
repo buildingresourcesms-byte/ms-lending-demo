@@ -55,3 +55,30 @@ export async function sendViaBackend({ to, subject, body, threadId, replyToId })
   if (!r.ok) throw new Error(j.error || 'Send failed')
   return j
 }
+
+/* Calendar is Outlook/Graph-only for now (no Gmail calendar connector).
+   Returns [] when the connected provider isn't Outlook so callers can
+   safely merge it with demo events. */
+export async function fetchCalendar({ days = 30, max = 50 } = {}) {
+  const p = await backendProvider()
+  if (p !== 'outlook') return []
+  const r = await fetch('/api/outlook/calendar?days=' + days + '&max=' + max, { cache: 'no-store' })
+  const j = await r.json().catch(() => ({}))
+  if (!r.ok) throw new Error(j.error || 'Could not load calendar')
+  return j.events || []
+}
+
+/* Create a real event. evt: { subject, start, end, location?, body?, attendees?, timeZone? }
+   start/end are local ISO strings without offset, e.g. "2026-07-01T14:00:00". */
+export async function createCalendarEvent(evt) {
+  const p = await backendProvider()
+  if (p !== 'outlook') throw new Error('No calendar connected')
+  const r = await fetch('/api/outlook/create-event', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(evt),
+  })
+  const j = await r.json().catch(() => ({}))
+  if (!r.ok) throw new Error(j.error || 'Could not create event')
+  return j
+}

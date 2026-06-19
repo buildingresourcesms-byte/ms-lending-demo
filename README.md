@@ -1,41 +1,69 @@
-# MS Lending — Loan Workspace (Demo)
+# MS Lending — Loan Workspace
 
-A polished SaaS-style **demo prototype** built to show MS Lending, LLC (Madison, MS) how
-purpose-built software could organize their day: leads, borrowers, loan files, documents,
-tasks, follow-ups, and borrower communication — in one calm, simple place.
+A SaaS-style loan workspace for MS Lending, LLC (Madison, MS): leads, borrowers, loan files,
+documents, tasks, follow-ups, agent partners, and borrower communication — in one place.
 
-> **Demo prototype only. Not intended for real borrower data or compliance use.**
-> Every borrower, phone number, and loan amount is fictional sample data.
+It runs two ways from the same codebase:
+
+- **Static demo** (GitHub Pages) — fully self-contained, fictional sample data, no backend.
+- **Live deployment** (Vercel) — adds a real two-way email backend that reads and sends from
+  a connected Outlook/Microsoft 365 or Gmail mailbox. See [`BACKEND-SETUP.md`](BACKEND-SETUP.md).
+
+> **Demo prototype. Sample data is fictional. Not intended for real borrower data or
+> compliance use** until the production hardening pass.
 
 ## Run it
 
 ```bash
 npm install
-npm run dev     # → http://localhost:5173
+npm run dev      # → http://localhost:5173
+npm run build    # static bundle → dist/
 ```
+
+The app gates behind a demo **sign-in** (pick a loan officer or "whole team"). Your data
+(borrowers, tasks, messages, connections, prefs) **persists in localStorage** and survives
+reloads; Settings → *Reset demo data* clears it.
 
 ## What's inside
 
-| Page | What it shows |
-|---|---|
-| **Dashboard** | KPI cards, pipeline-by-stage chart (clickable), lead-source donut, weekly leads sparkline, today's tasks, overdue/stuck alerts, activity feed |
-| **Borrowers** | Full CRM — search by name/phone/email/status, filter by officer/status/loan type, overdue & stuck & missing-docs filters, one-click "next action" on every file |
-| **Loan file** | 7 tabs: Overview, Borrower Info, Loan Details, Documents, Tasks, Notes, Timeline — with auto-logged activity |
-| **Documents** | 9-item checklist per file with 6 statuses, progress bars, and a working "Request Documents" action |
-| **Tasks** | 4-column team board (To Do / In Progress / Waiting / Complete) with priorities, due dates, and owners |
-| **Borrower Portal** | The client-facing view: friendly 6-stage progress tracker, upload prompts, loan officer card — zero banking jargon |
-| **Settings** | Company profile, team, notification preferences, and the compliance disclaimer |
+**Team workspace**
+- **Dashboard** — day-at-a-glance, scoped to the signed-in officer or the whole team: KPIs,
+  pipeline chart, today's tasks, overdue/stuck/rate-lock alerts, activity feed.
+- **Autopilot** — a human-review queue that drafts the next best action for each file.
+- **Calendar** — month grid + week strip of closings, follow-ups, and task due dates
+  (drag to reschedule).
+- **Agent Partners** — the referral network: partner tiers, two-way reciprocity ledger,
+  live buyer tracking, QR/pre-approval kit, and **Partner Link** to the separate AgentHQ app.
+- **Borrowers** — full CRM: search, filters (officer/status/loan type/overdue/missing
+  docs/stuck), per-file "next action," bulk email/text, CSV export.
+- **Loan file** — Overview, Borrower Info, Loan Details, Documents, Tasks, Notes, Timeline.
+- **Inbox** — two-way borrower messaging (SMS/email threads).
+- **Live Mail** — real connected mailbox view (Outlook/Gmail) on the Vercel deployment.
+- **Tasks** — drag-and-drop board (To Do / In Progress / Waiting / Complete).
+- **Reports** — pipeline, volume, and source analytics.
 
-Everything is interactive: advancing a loan's status, requesting documents, uploading from
-the portal, adding leads/notes/tasks — all update the dashboard, timeline, and badges live.
+**Client-facing**
+- **Borrower Portal** — friendly progress tracker, document upload prompts, officer card.
+- **Apply Intake** — a public apply link that captures new leads straight into the pipeline.
+
+**System** — Integrations (connect tools), Settings (company profile, team, email setup,
+themes, notification prefs), Profile, and a ⌘K command palette.
 
 ## Stack
 
-- React 19 + Vite
-- Tailwind CSS v4 (custom navy / blue / teal / sage theme, Inter typeface)
-- lucide-react icons
-- 100% front-end — local mock data in `src/data.js`, no backend
+- React 19 + Vite, Tailwind CSS v4 (navy / blue / teal / sage, Inter), lucide-react.
+- Selectable themes + dark mode; confetti on closings.
+- Client mock data in `src/data.js`; state persisted to localStorage.
+- **Email:** EmailJS (client-side) or Vercel serverless functions in `api/` (Microsoft
+  Graph / Gmail API) for real two-way mail. The frontend probes `/api/health` and stays in
+  demo mode when no backend is present.
 
-The workspace is intentionally team-neutral: no single user is baked into the product.
-Any team member logs in and sees the shared pipeline; per-file loan officer assignment
-carries the "who owns this" context.
+## Deploy
+
+- **GitHub Pages:** built static site lives in `docs/` (rebuild with
+  `npm run build` then copy `dist/` → `docs/`).
+- **Vercel:** `vercel.json` builds the Vite app and serves the `api/` functions; this is the
+  deployment that does real email. Setup steps in [`BACKEND-SETUP.md`](BACKEND-SETUP.md).
+
+The workspace is team-neutral — any officer signs in and sees their own (or the team's)
+pipeline; per-file officer assignment carries the "who owns this" context.

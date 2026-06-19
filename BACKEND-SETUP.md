@@ -76,10 +76,11 @@ to go to the Microsoft URL directly. This is the #1 thing people get stuck on.)
 1. **Certificates & secrets → + New client secret** → Add.
 2. **Copy the secret's "Value" immediately** (it's only shown once — not the "Secret ID").
 
-### 5. Add the mailbox permissions
+### 5. Add the mailbox + calendar permissions
 1. **API permissions → + Add a permission → Microsoft Graph → Delegated permissions**.
-2. Add these four (search each, tick it): `Mail.Read`, `Mail.Send`, `offline_access`, `User.Read`.
-   - **Delegated**, not Application. (Delegated = just Julene's mailbox.)
+2. Add these five (search each, tick it): `Mail.Read`, `Mail.Send`, `Calendars.ReadWrite`, `offline_access`, `User.Read`.
+   - **Delegated**, not Application. (Delegated = just Julene's own mailbox + calendar.)
+   - `Calendars.ReadWrite` is what powers the in-app calendar (reads her real schedule + can add events). None of these need a *separate* consent — the one admin-consent click below covers them all.
 3. If you (or the owner) have admin rights, click **"Grant admin consent for …"** now — that
    avoids the approval wall later. If you can't, that's fine — see the note in step 7.
 

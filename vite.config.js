@@ -7,4 +7,6 @@ export default defineConfig({
   // Pages subpaths) and even when opened directly from a folder.
   base: './',
   plugins: [react(), tailwindcss()],
+  // honor a harness-assigned PORT (preview tooling) when present; otherwise 5173
+  server: process.env.PORT ? { port: Number(process.env.PORT) } : undefined,
 })

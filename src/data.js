@@ -201,6 +201,7 @@ export const CAL_TYPES = {
   lock: { label: 'Rate lock', chip: 'bg-amber-500', soft: 'bg-amber-50 text-amber-700 ring-amber-600/25 dark:bg-amber-500/15' },
   followup: { label: 'Follow-up', chip: 'bg-sky-500', soft: 'bg-sky-50 text-sky-700 ring-sky-600/20 dark:bg-sky-500/15' },
   task: { label: 'Task due', chip: 'bg-violet-500', soft: 'bg-violet-50 text-violet-700 ring-violet-600/20 dark:bg-violet-500/15' },
+  meeting: { label: 'Meeting', chip: 'bg-teal-500', soft: 'bg-teal-50 text-teal-700 ring-teal-600/20 dark:bg-teal-500/15' },
 }
 
 export const calendarEvents = (borrowers, tasks, seat = 'team') => {

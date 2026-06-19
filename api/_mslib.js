@@ -20,7 +20,7 @@ export function env() {
    Mail.Send => send/reply; openid/profile/User.Read => basic identity.
    Must be identical on the authorize call and (if sent) the refresh call. */
 export const SCOPES =
-  'offline_access openid profile https://graph.microsoft.com/Mail.Read https://graph.microsoft.com/Mail.Send https://graph.microsoft.com/User.Read'
+  'offline_access openid profile https://graph.microsoft.com/Mail.Read https://graph.microsoft.com/Mail.Send https://graph.microsoft.com/User.Read https://graph.microsoft.com/Calendars.ReadWrite'
 
 export function authUrl() {
   const { clientId, redirectUri, tenant } = env()

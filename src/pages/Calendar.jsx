@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import {
   ChevronLeft,
   ChevronRight,
@@ -11,8 +11,12 @@ import {
   Plus,
   Move,
   X,
+  Users,
+  Video,
+  ExternalLink,
 } from 'lucide-react'
 import { useApp } from '../store.jsx'
+import { backendProvider, fetchCalendar } from '../api.js'
 import {
   calendarEvents,
   CAL_TYPES,
@@ -105,8 +109,30 @@ function ScheduleModal({ date, candidates, seat, onClose }) {
   )
 }
 
-const TYPE_ICON = { closing: Landmark, lock: KeyRound, followup: PhoneCall, task: ListChecks }
+const TYPE_ICON = { closing: Landmark, lock: KeyRound, followup: PhoneCall, task: ListChecks, meeting: Users }
 const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+
+/* "2026-06-20T14:00:00.0000000" (already local Central) → "2:00 PM" */
+const fmtTime = (dt) => {
+  if (!dt) return ''
+  let [h, m] = dt.slice(11, 16).split(':').map(Number)
+  const ap = h >= 12 ? 'PM' : 'AM'
+  h = h % 12 || 12
+  return `${h}:${String(m).padStart(2, '0')} ${ap}`
+}
+
+/* a real Outlook event → the calendar's event shape (type 'meeting') */
+const toCalEvent = (m) => ({
+  id: 'mtg-' + m.id,
+  date: (m.start?.dateTime || '').slice(0, 10),
+  type: 'meeting',
+  title: m.subject || '(no title)',
+  sub: m.allDay
+    ? 'All day'
+    : `${fmtTime(m.start?.dateTime)}–${fmtTime(m.end?.dateTime)}${m.location ? ' · ' + m.location : ''}`,
+  online: m.online,
+  webLink: m.webLink,
+})
 
 /* first day of the month containing `iso` */
 const firstOfMonth = (iso) => iso.slice(0, 8) + '01'
@@ -126,6 +152,25 @@ export default function Calendar() {
   const [selected, setSelected] = useState(today)
   const [scheduleOpen, setScheduleOpen] = useState(false)
   const [moving, setMoving] = useState(null) // a followup/task event being rescheduled
+  const [liveEvents, setLiveEvents] = useState([]) // real Outlook meetings (when connected)
+
+  // pull in the real calendar when a mailbox is connected; demo stays untouched
+  useEffect(() => {
+    let alive = true
+    ;(async () => {
+      try {
+        const p = await backendProvider()
+        if (!alive || p !== 'outlook') return
+        const evs = await fetchCalendar({ days: 45 })
+        if (alive) setLiveEvents(evs.map(toCalEvent).filter((e) => e.date))
+      } catch {
+        /* no backend / not reachable — stay on demo pipeline events */
+      }
+    })()
+    return () => {
+      alive = false
+    }
+  }, [])
 
   const candidates = useMemo(
     () => (seat === 'team' ? borrowers : borrowers.filter((b) => b.officerId === seat)).filter((b) => !isClosedOut(b)),
@@ -140,7 +185,10 @@ export default function Calendar() {
     setSelected(iso)
   }
 
-  const events = useMemo(() => calendarEvents(borrowers, tasks, seat), [borrowers, tasks, seat])
+  const events = useMemo(
+    () => [...calendarEvents(borrowers, tasks, seat), ...liveEvents],
+    [borrowers, tasks, seat, liveEvents],
+  )
   const byDate = useMemo(() => {
     const map = {}
     events.forEach((e) => {
@@ -349,6 +397,26 @@ export default function Calendar() {
                           >
                             <Move className="h-3 w-3" /> Reschedule
                           </button>
+                        )}
+                        {e.type === 'meeting' && e.online && (
+                          <a
+                            href={e.online}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1 text-xs font-medium text-teal-700 transition-colors hover:text-teal-800"
+                          >
+                            <Video className="h-3 w-3" /> Join
+                          </a>
+                        )}
+                        {e.type === 'meeting' && !e.online && e.webLink && (
+                          <a
+                            href={e.webLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1 text-xs font-medium text-slate-500 transition-colors hover:text-navy-900 dark:text-slate-400 dark:hover:text-white"
+                          >
+                            <ExternalLink className="h-3 w-3" /> Open in Outlook
+                          </a>
                         )}
                       </div>
                     </div>
