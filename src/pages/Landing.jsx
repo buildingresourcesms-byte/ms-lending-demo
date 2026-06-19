@@ -2,6 +2,7 @@ import { ArrowRight, Users } from 'lucide-react'
 import { useApp } from '../store.jsx'
 import { OFFICERS, DISCLAIMER, timeOfDay, SKY } from '../data.js'
 import { BrandMark, Avatar, cx } from '../ui.jsx'
+import { Reveal } from '../effects.jsx'
 
 function SignInRow({ o, onClick }) {
   return (
@@ -44,23 +45,28 @@ export default function Landing() {
 
   return (
     <div className="relative grid min-h-screen place-items-center overflow-hidden bg-gradient-to-br from-navy-950 via-navy-900 to-navy-800 px-4 py-10">
+      {/* ambient aurora (sign-in splash only) */}
       <div
         className="pointer-events-none absolute inset-x-0 top-0 h-72"
         style={{ background: `radial-gradient(80% 60% at 50% 0%, ${accent}, transparent 70%)` }}
       />
+      <div className="aurora-blob -left-16 top-10 h-72 w-72 bg-sage-500/40" aria-hidden="true" />
+      <div className="aurora-blob -right-20 bottom-0 h-80 w-80 bg-navy-500/40" style={{ animationDelay: '-6s' }} aria-hidden="true" />
+      <div className="aurora-blob left-1/3 -bottom-24 h-72 w-72 bg-sage-400/25" style={{ animationDelay: '-12s' }} aria-hidden="true" />
+
       <div className="relative w-full max-w-md">
         {/* brand */}
-        <div className="text-center">
+        <Reveal className="text-center">
           <BrandMark className="mx-auto h-14 w-14" />
-          <h1 className="font-display mt-4 text-2xl font-semibold text-white">MS Lending</h1>
+          <h1 className="font-display brand-shine mt-4 text-2xl font-semibold text-white">MS Lending</h1>
           <p className="text-sm text-navy-300">Loan Workspace</p>
           <p className="mx-auto mt-3 max-w-xs text-[13px] leading-relaxed text-navy-200">
             “We’re making getting a mortgage easier than ever before.”
           </p>
-        </div>
+        </Reveal>
 
         {/* sign-in card */}
-        <div className="mt-7 rounded-2xl border border-white/10 bg-white/5 p-4 shadow-[0_24px_60px_-12px_rgba(0,0,0,0.5)]">
+        <Reveal delay={120} className="mt-7 rounded-2xl border border-white/10 bg-white/5 p-4 shadow-[0_24px_60px_-12px_rgba(0,0,0,0.5)]">
           <p className="px-1 pb-2 text-[11px] font-semibold uppercase tracking-wider text-navy-400">Sign in as</p>
           <div className="space-y-2">
             {featured.map((o) => (
@@ -77,13 +83,15 @@ export default function Landing() {
 
           <button
             onClick={() => signIn('team')}
-            className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-[13px] font-medium text-navy-200 transition-colors hover:bg-white/5 hover:text-white"
+            className="glare mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-[13px] font-medium text-navy-200 transition-colors hover:bg-white/5 hover:text-white"
           >
             <Users className="h-3.5 w-3.5" /> View the whole team
           </button>
-        </div>
+        </Reveal>
 
-        <p className="mx-auto mt-5 max-w-xs text-center text-[10px] leading-relaxed text-navy-500">{DISCLAIMER}</p>
+        <Reveal delay={220}>
+          <p className="mx-auto mt-5 max-w-xs text-center text-[10px] leading-relaxed text-navy-500">{DISCLAIMER}</p>
+        </Reveal>
       </div>
     </div>
   )

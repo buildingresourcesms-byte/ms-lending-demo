@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { Search, ChevronDown, X, ArrowRight, UploadCloud } from 'lucide-react'
 import { STATUS_STYLES, DOC_STYLES, PRIORITY_STYLES } from './data.js'
+import { CountUpText, useSpotlight } from './effects.jsx'
 
 export const cx = (...a) => a.filter(Boolean).join(' ')
 
@@ -93,11 +94,13 @@ const STAT_ACCENTS = {
 export function Stat({ icon: Icon, label, value, accent = 'slate', onClick }) {
   const a = STAT_ACCENTS[accent] ?? STAT_ACCENTS.slate
   const Tag = onClick ? 'button' : 'div'
+  const spot = useSpotlight()
   return (
     <Tag
       onClick={onClick}
+      {...spot}
       className={cx(
-        'group relative w-full overflow-hidden rounded-xl border border-slate-200/80 bg-white p-4 text-left shadow-[0_1px_2px_rgba(16,24,40,0.04)] transition-all duration-200 dark:border-white/10 dark:bg-navy-900',
+        'spotlight-card group relative w-full overflow-hidden rounded-xl border border-slate-200/80 bg-white p-4 text-left shadow-[0_1px_2px_rgba(16,24,40,0.04)] transition-all duration-200 dark:border-white/10 dark:bg-navy-900',
         onClick &&
           'cursor-pointer hover:-translate-y-0.5 hover:border-navy-300/70 hover:shadow-[0_10px_28px_-14px_rgba(16,24,40,0.22)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-navy-500/40 dark:hover:border-white/20',
       )}
@@ -111,7 +114,7 @@ export function Stat({ icon: Icon, label, value, accent = 'slate', onClick }) {
         )}
       </span>
       <span className="mt-1.5 block text-[26px] font-semibold leading-8 tracking-tight text-navy-950 tabular-nums dark:text-white">
-        {value}
+        <CountUpText value={value} />
       </span>
       {onClick && (
         <ArrowRight className="absolute bottom-3.5 right-3.5 h-4 w-4 -translate-x-1 text-navy-400 opacity-0 transition-all duration-200 group-hover:translate-x-0 group-hover:opacity-100" />

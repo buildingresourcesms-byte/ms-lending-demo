@@ -280,6 +280,107 @@ html.dark body {
   animation: typing 1s ease-in-out infinite;
 }
 
+/* ============================================================
+   Visual polish (reactbits.dev-inspired) — pure CSS, theme-var
+   driven so it auto-retints across palettes + dark mode.
+   ============================================================ */
+
+/* ambient aurora — used ONLY behind the sign-in splash, never the workspace */
+@keyframes aurora-drift {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(6%, 5%) scale(1.15); }
+}
+.aurora-blob {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(72px);
+  opacity: 0.45;
+  pointer-events: none;
+  animation: aurora-drift 19s ease-in-out infinite;
+}
+
+/* shared sweep for shiny text */
+@keyframes shine {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+/* static navy→sage brand gradient fill for ONE heading */
+.gradient-text {
+  background-image: linear-gradient(92deg, var(--color-navy-700), var(--color-sage-500), var(--color-navy-600));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+
+/* slow shimmer for ONE small accent label (light surfaces) */
+.shiny-text {
+  background: linear-gradient(110deg, var(--color-navy-700) 0%, var(--color-navy-700) 40%, #fff 50%, var(--color-navy-700) 60%, var(--color-navy-700) 100%);
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  animation: shine 4.5s linear infinite;
+}
+html.dark .shiny-text {
+  background: linear-gradient(110deg, var(--color-navy-200) 0%, var(--color-navy-200) 40%, #fff 50%, var(--color-navy-200) 60%, var(--color-navy-200) 100%);
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+/* brand wordmark shimmer tuned for the always-dark sign-in splash */
+.brand-shine {
+  background: linear-gradient(110deg, var(--color-navy-100) 0%, var(--color-navy-100) 42%, #fff 50%, var(--color-sage-300) 60%, var(--color-navy-100) 74%, var(--color-navy-100) 100%);
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  animation: shine 5.5s linear infinite;
+}
+
+/* faint cursor-follow glow; the element also needs relative + overflow-hidden */
+.spotlight-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  background: radial-gradient(240px circle at var(--mx, 50%) var(--my, 50%),
+    color-mix(in oklab, var(--color-sage-400) 20%, transparent), transparent 60%);
+}
+.spotlight-card:hover::before { opacity: 1; }
+@media (hover: none) { .spotlight-card::before { display: none; } }
+
+/* one-pass sheen across a primary CTA on hover */
+.glare { position: relative; overflow: hidden; }
+.glare::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(110deg, transparent 35%, color-mix(in oklab, #fff 32%, transparent) 50%, transparent 65%);
+  transform: translateX(-130%);
+  transition: transform 0.6s ease;
+}
+.glare:hover::after { transform: translateX(130%); }
+
+/* keep the shimmer/glow effects from looking broken under reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .shiny-text, .brand-shine {
+    animation: none;
+    background: none;
+    color: inherit;
+    -webkit-text-fill-color: currentColor;
+  }
+  .spotlight-card:hover::before { opacity: 0; }
+  .glare::after { display: none; }
+}
+
 /* Respect users who prefer reduced motion (Quick Ref §1 / §7) */
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
