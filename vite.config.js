@@ -30,8 +30,20 @@ const localServerlessApi = () => ({
       if (!url.pathname.startsWith('/api/')) return next()
       const relative = url.pathname.slice('/api/'.length).replace(/^\/+|\/+$/g, '')
       if (!relative || relative.includes('..')) return next()
-      const file = path.resolve(apiRoot, `${relative}.js`)
-      if (!file.startsWith(apiRoot + path.sep) || !existsSync(file)) return next()
+      let file = path.resolve(apiRoot, `${relative}.js`)
+      if (!file.startsWith(apiRoot + path.sep)) return next()
+      if (!existsSync(file)) {
+        // catch-all: /api/<dir>/<seg> -> api/<dir>/[op].js with req.query.op=<seg>
+        const parts = relative.split('/')
+        if (parts.length === 2) {
+          const dynamic = path.resolve(apiRoot, parts[0], '[op].js')
+          if (dynamic.startsWith(apiRoot + path.sep) && existsSync(dynamic)) {
+            file = dynamic
+            url.searchParams.set('op', parts[1])
+          }
+        }
+      }
+      if (!existsSync(file)) return next()
 
       req.query = Object.fromEntries(url.searchParams.entries())
       req.originalUrl = req.url

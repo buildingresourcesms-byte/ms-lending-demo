@@ -9,10 +9,10 @@ import {
   setRefreshToken,
   validOAuthState,
 } from '../api/_oauth.js'
-import gmailAuth from '../api/gmail/auth.js'
-import gmailCallback from '../api/gmail/callback.js'
+import gmailAuth from '../api/gmail/_auth.js'
+import gmailCallback from '../api/gmail/_callback.js'
 import health from '../api/health.js'
-import outlookAuth from '../api/outlook/auth.js'
+import outlookAuth from '../api/outlook/_auth.js'
 
 function response() {
   const headers = new Map()
