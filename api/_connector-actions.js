@@ -41,8 +41,8 @@ async function googleCalendar(action, payload, tokens) {
         summary: payload.summary,
         description: payload.description,
         location: payload.location,
-        start: typeof payload.start === 'string' ? { dateTime: payload.start } : payload.start,
-        end: typeof payload.end === 'string' ? { dateTime: payload.end } : payload.end,
+        start: typeof payload.start === 'string' ? { dateTime: payload.start, timeZone: payload.timeZone } : payload.start,
+        end: typeof payload.end === 'string' ? { dateTime: payload.end, timeZone: payload.timeZone } : payload.end,
         attendees: payload.attendees,
       }),
     })
@@ -56,12 +56,12 @@ async function meta(action, payload, tokens, provider) {
     return jsonRequest(`${graph}/me/accounts?fields=id,name,access_token&access_token=${encodeURIComponent(tokens.access_token)}`)
   }
   if (provider === 'facebook' && action === 'list_leads') {
-    requireFields(payload, ['formId'])
-    return jsonRequest(`${graph}/${encodeURIComponent(payload.formId)}/leads?fields=id,created_time,field_data&access_token=${encodeURIComponent(payload.pageAccessToken || tokens.access_token)}`)
+    requireFields(payload, ['formId', 'pageAccessToken']) // these edges reject a user token — call list_pages first
+    return jsonRequest(`${graph}/${encodeURIComponent(payload.formId)}/leads?fields=id,created_time,field_data&access_token=${encodeURIComponent(payload.pageAccessToken)}`)
   }
   if (provider === 'instagram' && action === 'list_conversations') {
-    requireFields(payload, ['pageId'])
-    return jsonRequest(`${graph}/${encodeURIComponent(payload.pageId)}/conversations?platform=instagram&fields=id,participants,updated_time&access_token=${encodeURIComponent(payload.pageAccessToken || tokens.access_token)}`)
+    requireFields(payload, ['pageId', 'pageAccessToken']) // page token required — call list_pages first
+    return jsonRequest(`${graph}/${encodeURIComponent(payload.pageId)}/conversations?platform=instagram&fields=id,participants,updated_time&access_token=${encodeURIComponent(payload.pageAccessToken)}`)
   }
   throw new Error(`Unsupported ${provider} action`)
 }
@@ -71,18 +71,22 @@ async function businessProfile(action, payload, tokens) {
   if (action === 'list_accounts') return jsonRequest('https://mybusinessaccountmanagement.googleapis.com/v1/accounts', { headers })
   if (action === 'list_locations') {
     requireFields(payload, ['accountId'])
+    const acct = String(payload.accountId).replace(/^accounts\//, '')
     const readMask = payload.readMask || 'name,title,storeCode,websiteUri,phoneNumbers,categories'
-    return jsonRequest(`https://mybusinessbusinessinformation.googleapis.com/v1/${payload.accountId}/locations?readMask=${encodeURIComponent(readMask)}`, { headers })
+    return jsonRequest(`https://mybusinessbusinessinformation.googleapis.com/v1/accounts/${encodeURIComponent(acct)}/locations?pageSize=100&readMask=${encodeURIComponent(readMask)}`, { headers })
   }
   if (action === 'list_reviews') {
     requireFields(payload, ['accountId', 'locationId'])
-    return jsonRequest(`https://mybusiness.googleapis.com/v4/${payload.accountId}/${payload.locationId}/reviews`, { headers })
+    const acct = String(payload.accountId).replace(/^accounts\//, '')
+    const loc = String(payload.locationId).replace(/^locations\//, '')
+    return jsonRequest(`https://mybusiness.googleapis.com/v4/accounts/${encodeURIComponent(acct)}/locations/${encodeURIComponent(loc)}/reviews`, { headers })
   }
   throw new Error('Unsupported Google Business Profile action')
 }
 
 async function twilio(action, payload) {
   const sid = process.env.TWILIO_ACCOUNT_SID
+  if (!sid || !process.env.TWILIO_AUTH_TOKEN) throw new Error('Twilio is not configured (TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN)')
   const form = new URLSearchParams()
   let path = 'Messages.json'
   if (action === 'send_sms') {
@@ -98,9 +102,11 @@ async function twilio(action, payload) {
   } else if (action === 'place_call') {
     requireFields(payload, ['to'])
     path = 'Calls.json'
+    const url = payload.twimlUrl || process.env.TWILIO_VOICE_WEBHOOK_URL
+    if (!url) throw new Error('place_call requires a TwiML URL (set TWILIO_VOICE_WEBHOOK_URL or pass twimlUrl)')
     form.set('From', payload.from || process.env.TWILIO_PHONE_NUMBER)
     form.set('To', payload.to)
-    form.set('Url', payload.twimlUrl || process.env.TWILIO_VOICE_WEBHOOK_URL)
+    form.set('Url', url)
     if (payload.statusCallback) form.set('StatusCallback', payload.statusCallback)
   } else throw new Error('Unsupported Twilio action')
   return jsonRequest(`https://api.twilio.com/2010-04-01/Accounts/${sid}/${path}`, {
@@ -144,7 +150,7 @@ async function dropbox(action, payload, tokens) {
       method: 'POST',
       headers: bearer(tokens.access_token, {
         'Content-Type': 'application/octet-stream',
-        'Dropbox-API-Arg': JSON.stringify({ path: payload.path, mode: payload.mode || 'add', autorename: true }),
+        'Dropbox-API-Arg': JSON.stringify({ path: payload.path, mode: payload.mode || 'add', autorename: payload.autorename ?? false }),
       }),
       body: Buffer.from(payload.contentBase64, 'base64'),
     })
@@ -178,7 +184,8 @@ async function quickbooks(action, payload, tokens) {
 }
 
 async function mailchimp(action, payload, tokens) {
-  const metadata = await jsonRequest('https://login.mailchimp.com/oauth2/metadata', { headers: bearer(tokens.access_token) })
+  // Mailchimp's metadata endpoint requires the "OAuth" scheme, not "Bearer"
+  const metadata = await jsonRequest('https://login.mailchimp.com/oauth2/metadata', { headers: { Authorization: `OAuth ${tokens.access_token}`, Accept: 'application/json' } })
   const base = metadata.api_endpoint
   if (!base) throw new Error('Mailchimp metadata did not return an API endpoint')
   if (action === 'list_audiences') return jsonRequest(`${base}/3.0/lists?count=${Math.min(Number(payload.count) || 20, 100)}`, { headers: bearer(tokens.access_token) })
@@ -202,6 +209,7 @@ export async function runConnectorAction(req, res, provider, action, payload = {
   if (['sms', 'whatsapp', 'dialer'].includes(provider)) return twilio(action, payload)
   if (provider === 'zapier') {
     if (action !== 'trigger') throw new Error('Unsupported Zapier action')
+    if (!process.env.ZAPIER_WEBHOOK_URL) throw new Error('Zapier is not connected; set ZAPIER_WEBHOOK_URL')
     return jsonRequest(process.env.ZAPIER_WEBHOOK_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(process.env.ZAPIER_WEBHOOK_SECRET ? { Authorization: `Bearer ${process.env.ZAPIER_WEBHOOK_SECRET}` } : {}) },

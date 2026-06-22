@@ -131,6 +131,24 @@ test('signed Zillow webhooks normalize into the common event boundary', async ()
   })
 })
 
+test('webhook signatures fail closed when the provider secret is unset', async () => {
+  await withEnv({ TWILIO_AUTH_TOKEN: null, META_CLIENT_SECRET: null, DROPBOX_CLIENT_SECRET: null }, async () => {
+    for (const [provider, header] of [['sms', 'x-twilio-signature'], ['facebook', 'x-hub-signature-256'], ['dropbox', 'x-dropbox-signature']]) {
+      const body = { forged: true }
+      const res = response()
+      await webhookHandler({
+        method: 'POST',
+        url: `/api/integrations/webhook?provider=${provider}`,
+        query: { provider },
+        headers: { 'content-type': 'application/json', [header]: 'sha256=forged' },
+        rawBody: Buffer.from(JSON.stringify(body)),
+        body,
+      }, res)
+      assert.equal(res.statusCode, 401, `${provider} must reject a forged signature when its secret is unset`)
+    }
+  })
+})
+
 test('Twilio SMS adapter maps the common action payload to the provider API', async () => {
   await withEnv({ TWILIO_ACCOUNT_SID: 'AC123', TWILIO_AUTH_TOKEN: 'secret', TWILIO_PHONE_NUMBER: '+16015550100' }, async () => {
     const originalFetch = globalThis.fetch

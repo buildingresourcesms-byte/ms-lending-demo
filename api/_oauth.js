@@ -111,9 +111,15 @@ export function browserOAuthTokens(req, provider) {
 }
 
 export function setOAuthTokens(res, provider, tokens) {
-  const value = Buffer.from(JSON.stringify(tokens), 'utf8').toString('base64url')
+  // Persist only what's needed to mint future access tokens; dropping the large
+  // id_token keeps the cookie comfortably under the ~4KB browser limit.
+  const persist = { ...(tokens || {}) }
+  delete persist.id_token
+  const value = Buffer.from(JSON.stringify(persist), 'utf8').toString('base64url')
   const expires = Number(tokens?.refresh_token_expires_in || 60 * 60 * 24 * 90)
-  appendCookie(res, cookie(tokenCookieName(provider), value, { maxAge: Math.max(300, Math.min(expires, 60 * 60 * 24 * 180)) }))
+  // floor at 1 day so a small refresh_token_expires_in can't clamp the cookie to
+  // the 5-minute minimum and silently drop the connection mid-use
+  appendCookie(res, cookie(tokenCookieName(provider), value, { maxAge: Math.min(Math.max(expires, 60 * 60 * 24), 60 * 60 * 24 * 180) }))
 }
 
 export function clearOAuthTokens(res, provider) {

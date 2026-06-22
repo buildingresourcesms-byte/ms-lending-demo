@@ -16,16 +16,22 @@ function publicUrl(req) {
 
 export function verifyWebhook(req, provider, rawBody, body = {}) {
   if (provider === 'facebook' || provider === 'instagram') {
+    const secret = process.env.META_CLIENT_SECRET
     const signature = String(req.headers['x-hub-signature-256'] || '').replace(/^sha256=/, '')
-    return safeEqual(signature, hmac('sha256', process.env.META_CLIENT_SECRET || '', rawBody))
+    if (!secret || !signature) return false // never validate against an empty key
+    return safeEqual(signature, hmac('sha256', secret, rawBody))
   }
   if (['sms', 'whatsapp', 'dialer'].includes(provider)) {
+    const secret = process.env.TWILIO_AUTH_TOKEN
+    if (!secret || !req.headers['x-twilio-signature']) return false
     const values = Object.entries(body || {}).sort(([a], [b]) => a.localeCompare(b)).map(([key, value]) => `${key}${value}`).join('')
-    const expected = hmac('sha1', process.env.TWILIO_AUTH_TOKEN || '', `${publicUrl(req)}${values}`, 'base64')
+    const expected = hmac('sha1', secret, `${publicUrl(req)}${values}`, 'base64')
     return safeEqual(req.headers['x-twilio-signature'], expected)
   }
   if (provider === 'dropbox') {
-    return safeEqual(req.headers['x-dropbox-signature'], hmac('sha256', process.env.DROPBOX_CLIENT_SECRET || '', rawBody))
+    const secret = process.env.DROPBOX_CLIENT_SECRET
+    if (!secret || !req.headers['x-dropbox-signature']) return false
+    return safeEqual(req.headers['x-dropbox-signature'], hmac('sha256', secret, rawBody))
   }
   if (provider === 'docusign' && process.env.DOCUSIGN_CONNECT_SECRET) {
     return safeEqual(req.headers['x-docusign-signature-1'], hmac('sha256', process.env.DOCUSIGN_CONNECT_SECRET, rawBody, 'base64'))

@@ -5,6 +5,10 @@ import { connectorTokenState } from '../_connector-oauth.js'
 import { refreshTokenSource } from '../_oauth.js'
 
 export default function handler(req, res) {
+  if (req.method && req.method !== 'GET') {
+    res.status(405).json({ error: 'GET only' })
+    return
+  }
   const gmail = gmailEnv()
   const outlook = outlookEnv()
   const origin = `${req.headers['x-forwarded-proto'] || (process.env.NODE_ENV === 'development' ? 'http' : 'https')}://${req.headers['x-forwarded-host'] || req.headers.host || process.env.VERCEL_URL || 'localhost:4173'}`

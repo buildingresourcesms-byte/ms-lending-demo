@@ -27,10 +27,16 @@ export default async function handler(req, res) {
   if (!definition?.webhook) return res.status(404).json({ error: 'Webhook connector not found' })
 
   if (req.method === 'GET' && (provider === 'facebook' || provider === 'instagram')) {
-    if (req.query['hub.mode'] === 'subscribe' && req.query['hub.verify_token'] === process.env.META_VERIFY_TOKEN) return res.status(200).send(req.query['hub.challenge'])
+    if (req.query['hub.mode'] === 'subscribe' && req.query['hub.verify_token'] === process.env.META_VERIFY_TOKEN) {
+      res.setHeader('Content-Type', 'text/plain')
+      return res.status(200).send(String(req.query['hub.challenge'] || ''))
+    }
     return res.status(403).send('Webhook verification failed')
   }
-  if (req.method === 'GET' && provider === 'dropbox') return res.status(200).send(req.query.challenge || '')
+  if (req.method === 'GET' && provider === 'dropbox') {
+    res.setHeader('Content-Type', 'text/plain')
+    return res.status(200).send(String(req.query.challenge || ''))
+  }
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' })
 
   const { raw, body } = await readWebhookBody(req)

@@ -73,16 +73,18 @@ export async function getAccessToken(req, res) {
   const r = await fetch(tokenEndpoint(), {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    // omit `scope` on refresh — it defaults to the originally-consented scopes.
+    // sending a widened SCOPES (e.g. after adding Calendars.ReadWrite) here
+    // triggers AADSTS invalid_grant until the user re-consents.
     body: new URLSearchParams({
       client_id: clientId,
-      scope: SCOPES,
       refresh_token: refreshToken,
       grant_type: 'refresh_token',
       client_secret: clientSecret,
     }),
   })
   const j = await r.json()
-  if (!r.ok) throw new Error('Token refresh failed: ' + JSON.stringify(j))
+  if (!r.ok) throw new Error('Token refresh failed: ' + (j.error_description || j.error || r.status))
   if (j.refresh_token && browserToken) setRefreshToken(res, 'outlook', j.refresh_token)
   return j.access_token
 }

@@ -107,6 +107,12 @@ export async function connectorAccessToken(req, res, provider) {
     expires_at: refreshed.expires_in ? Date.now() + Number(refreshed.expires_in) * 1000 : null,
   }
   if (browserTokens) setOAuthTokens(res, provider, next)
+  else if (refreshed.refresh_token && refreshed.refresh_token !== tokens.refresh_token) {
+    // server/env-token mode can't persist a rotated refresh token, so providers
+    // that rotate on every refresh (QuickBooks, Dropbox, DocuSign) would die
+    // after the old token is invalidated. Warn loudly; prefer the in-app connect.
+    console.warn(`[${provider}] refresh token rotated but cannot be persisted in CONNECTOR_*_REFRESH_TOKEN mode — connect via the app to avoid expiry.`)
+  }
   return next
 }
 
