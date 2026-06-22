@@ -1,5 +1,6 @@
 import { getAccessToken, graph } from '../_mslib.js'
 import { cors } from '../_lib.js'
+import { requireIntegrationAccess } from '../_integration-access.js'
 
 const display = (r) => r?.emailAddress?.name || r?.emailAddress?.address || ''
 
@@ -7,13 +8,14 @@ const display = (r) => r?.emailAddress?.name || r?.emailAddress?.address || ''
    shape so the frontend stays connector-agnostic. Graph has no cross-folder
    query, so we read both folders and merge. */
 export default async function handler(req, res) {
+  if (!requireIntegrationAccess(req, res)) return
   cors(res)
   if (req.method === 'OPTIONS') {
     res.status(200).end()
     return
   }
   try {
-    const token = await getAccessToken()
+    const token = await getAccessToken(req, res)
     const top = Math.min(Number(req.query.max) || 20, 40)
     const sel = 'id,subject,from,toRecipients,bodyPreview,conversationId'
     const [inbox, sent] = await Promise.all([

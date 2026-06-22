@@ -1,103 +1,7 @@
-import { useState } from 'react'
-import { Building2, MapPin, Phone, Mail, BadgeCheck, AlertTriangle, Check, RotateCcw, Loader2, ExternalLink } from 'lucide-react'
+import { MapPin, Phone, Mail, BadgeCheck, AlertTriangle, Check, RotateCcw } from 'lucide-react'
 import { useApp } from '../store.jsx'
 import { OFFICERS, DISCLAIMER } from '../data.js'
-import { PageHeader, Card, Avatar, Toggle, BrandMark, Badge, Btn, Field, inputCls, cx } from '../ui.jsx'
-
-/* ---- connect a real email account (EmailJS — sends from the browser, no backend) ---- */
-function EmailSetupCard() {
-  const { emailCfg, setEmailCfg, emailReady, sendTestEmail, toast } = useApp()
-  const [form, setForm] = useState(emailCfg ?? { serviceId: '', templateId: '', publicKey: '', replyTo: '' })
-  const [testing, setTesting] = useState(false)
-  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
-  const filled = form.serviceId.trim() && form.templateId.trim() && form.publicKey.trim()
-
-  const save = () => {
-    setEmailCfg({
-      serviceId: form.serviceId.trim(),
-      templateId: form.templateId.trim(),
-      publicKey: form.publicKey.trim(),
-      replyTo: form.replyTo.trim(),
-    })
-    toast('Email connected — you can now send for real 📧', '📧')
-  }
-  const disconnect = () => {
-    setEmailCfg(null)
-    setForm({ serviceId: '', templateId: '', publicKey: '', replyTo: '' })
-    toast('Email disconnected', '✓')
-  }
-  const test = async () => {
-    setTesting(true)
-    try {
-      await sendTestEmail({ ...form, serviceId: form.serviceId.trim(), templateId: form.templateId.trim(), publicKey: form.publicKey.trim() })
-      toast('Test email sent — check your inbox ✓', '📧')
-    } catch (err) {
-      const reason = err?.text || err?.message || 'check your 3 IDs and template'
-      toast(`Test failed: ${reason}`, '⚠️')
-    } finally {
-      setTesting(false)
-    }
-  }
-
-  return (
-    <Card
-      title="Email sending"
-      sub="Send real emails to borrowers from your own address — no IT, no password shared here."
-      action={
-        emailReady ? (
-          <Badge cls="bg-sage-50 text-sage-700 ring-sage-600/20" dot="bg-sage-500">Connected</Badge>
-        ) : (
-          <Badge cls="bg-slate-100 text-slate-500 dark:bg-white/10 dark:text-slate-300">Not connected</Badge>
-        )
-      }
-    >
-      {!emailReady && (
-        <ol className="mb-4 space-y-2 rounded-lg bg-slate-50/60 p-3 text-xs leading-relaxed text-slate-500 dark:bg-white/5">
-          <li>
-            1. Make a free account at{' '}
-            <a href="https://dashboard.emailjs.com/sign-up" target="_blank" rel="noreferrer" className="inline-flex items-center gap-0.5 font-medium text-navy-600 underline dark:text-slate-200">
-              emailjs.com <ExternalLink className="h-3 w-3" />
-            </a>{' '}
-            → <span className="font-medium">Email Services → Add New Service</span> → connect your Gmail/Outlook.
-          </li>
-          <li>
-            2. <span className="font-medium">Email Templates → Create New Template</span>. In the template’s
-            <span className="font-medium"> Settings</span> tab, set these fields exactly (this is the part everyone
-            misses):
-            <div className="mt-1 rounded-md bg-white p-2 font-mono text-[11px] text-slate-600 ring-1 ring-slate-200 dark:bg-navy-950 dark:text-slate-300 dark:ring-white/10">
-              To Email = {'{{to_email}}'}<br />
-              From Name = {'{{from_name}}'}<br />
-              Reply To = {'{{reply_to}}'}<br />
-              Subject = {'{{subject}}'}
-            </div>
-            <span className="mt-1 block">…and put <span className="font-mono">{'{{message}}'}</span> in the Content box. Save.</span>
-          </li>
-          <li>
-            3. Copy <span className="font-medium">Service ID</span> (Email Services), <span className="font-medium">Template ID</span> (Email Templates), and your <span className="font-medium">Public Key</span> (Account → General) into the boxes below → Save → Send test.
-          </li>
-        </ol>
-      )}
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Service ID"><input className={inputCls} value={form.serviceId} onChange={set('serviceId')} placeholder="service_xxxxxxx" /></Field>
-        <Field label="Template ID"><input className={inputCls} value={form.templateId} onChange={set('templateId')} placeholder="template_xxxxxxx" /></Field>
-        <Field label="Public Key"><input className={inputCls} value={form.publicKey} onChange={set('publicKey')} placeholder="xxxxxxxxxxxxxxxx" /></Field>
-        <Field label="Reply-to (optional)"><input className={inputCls} value={form.replyTo} onChange={set('replyTo')} placeholder="julene@mslending.net" /></Field>
-      </div>
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
-        <p className="flex items-center gap-1.5 text-[11px] text-slate-400">
-          <BadgeCheck className="h-3.5 w-3.5 text-sage-500" /> Your password never touches this app — EmailJS holds the connection.
-        </p>
-        <div className="flex gap-2">
-          {emailReady && <Btn variant="ghost" sm onClick={disconnect}>Disconnect</Btn>}
-          <Btn variant="outline" sm onClick={test} disabled={!filled || testing}>
-            {testing ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Sending…</> : <><Mail className="h-3.5 w-3.5" /> Send test</>}
-          </Btn>
-          <Btn variant="sage" sm onClick={save} disabled={!filled}><Check className="h-3.5 w-3.5" /> Save</Btn>
-        </div>
-      </div>
-    </Card>
-  )
-}
+import { PageHeader, Card, Avatar, Toggle, BrandMark, Badge, Btn, cx } from '../ui.jsx'
 
 /* selectable themes — preview colors are fixed hexes so every swatch
    shows its own colors no matter which theme is active */
@@ -117,9 +21,6 @@ export default function Settings() {
       <PageHeader title="Settings" sub="Company profile, team, and workspace preferences." />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <div className="lg:col-span-2">
-          <EmailSetupCard />
-        </div>
         <Card title="Company profile">
           <div className="flex items-center gap-3.5">
             <BrandMark className="h-12 w-12" />
@@ -283,7 +184,7 @@ export default function Settings() {
           <p className="mt-1 text-xs leading-relaxed text-amber-700">
             Every borrower, phone number, loan amount, and document in this workspace is fictional sample
             data. This is a concept prototype built to show MS Lending what a custom loan workspace could
-            feel like — security, compliance, and real integrations would come with the production build.
+            feel like. Integration adapters are ready for provider credentials; production security and compliance hardening is still required before using real borrower data.
           </p>
         </div>
       </div>

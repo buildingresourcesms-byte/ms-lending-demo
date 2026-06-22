@@ -89,7 +89,10 @@ export const CHANNELS = {
 }
 
 /* which connected integration powers a channel (if any) */
-export const channelProvider = (channel, connections) => {
+export const channelProvider = (channel, connections, mailBackend = null) => {
+  if (channel === 'email') {
+    return mailBackend ? { id: mailBackend, name: PROVIDER_NAMES[mailBackend], account: 'OAuth mailbox' } : null
+  }
   const id = CHANNELS[channel].providers.find((p) => connections[p])
   return id ? { id, name: PROVIDER_NAMES[id], account: connections[id].account } : null
 }
@@ -109,11 +112,12 @@ const defaultBody = (channel, b, officer) => {
 
 /* ---------- the Call / Text / Email action bar ---------- */
 function ContactBar({ b, connections, onPick }) {
+  const { mailBackend } = useApp()
   return (
     <div className="mb-5 flex flex-wrap items-center gap-2 rounded-xl border border-slate-200/80 bg-white px-3 py-2.5 shadow-[0_1px_2px_rgba(16,24,40,0.04)] dark:border-white/10 dark:bg-navy-900">
       <span className="mr-1 text-xs font-medium text-slate-400">Reach out</span>
       {Object.entries(CHANNELS).map(([key, c]) => {
-        const prov = channelProvider(key, connections)
+        const prov = channelProvider(key, connections, mailBackend)
         const Icon = c.icon
         return (
           <button
@@ -146,9 +150,9 @@ function ContactBar({ b, connections, onPick }) {
 
 /* ---------- compose / log modal (adapts per channel) ---------- */
 export function ComposeModal({ b, channel, connections, officer, onClose }) {
-  const { logCommunication, sendMessage, emailReady, go } = useApp()
+  const { placeCall, sendMessage, mailBackend, go, toast } = useApp()
   const c = CHANNELS[channel]
-  const prov = channelProvider(channel, connections)
+  const prov = channelProvider(channel, connections, mailBackend)
   const first = b.name.split(' ')[0]
   const Icon = c.icon
   const [subject, setSubject] = useState(`Your ${b.loanType} loan with MS Lending`)
@@ -188,19 +192,19 @@ export function ComposeModal({ b, channel, connections, officer, onClose }) {
     )
   }
 
-  const send = (e) => {
+  const send = async (e) => {
     e.preventDefault()
     if (channel === 'email') {
       sendMessage(b.id, 'email', body, { subject })
     } else if (channel === 'sms') {
       sendMessage(b.id, 'sms', body)
     } else {
-      logCommunication(
-        b.id,
-        'call',
-        `Call logged${note.trim() ? ' — ' + note.trim() : ''}`,
-        'Call logged',
-      )
+      try {
+        await placeCall(b.id, note)
+      } catch (error) {
+        toast(error.message || 'Call could not be started', '⚠')
+        return
+      }
     }
     onClose()
   }
@@ -248,9 +252,11 @@ export function ComposeModal({ b, channel, connections, officer, onClose }) {
         <div className="flex items-center justify-between gap-3">
           <p className="flex items-center gap-1.5 text-[11px] text-slate-400">
             <ShieldCheck className="h-3.5 w-3.5 text-sage-500" />
-            {channel === 'email' && emailReady
-              ? 'Sends for real from your connected email, and logs to the file.'
-              : 'Logged to the file & Inbox. Connect email in Settings to send for real.'}
+            {channel === 'email' && mailBackend
+              ? 'Sends through your connected OAuth mailbox and logs to the file.'
+              : channel === 'email'
+                ? 'Demo only. Connect Microsoft 365 or Gmail in Integrations to send for real.'
+                : 'Logged to the file and Inbox. This channel is demo-only.'}
           </p>
           <div className="flex gap-2">
             <Btn variant="ghost" onClick={onClose}>

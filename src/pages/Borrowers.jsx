@@ -40,9 +40,9 @@ const bulkTextareaCls =
 
 /* ---------- send to a whole group at once ---------- */
 function BulkComposeModal({ recipients, channel, connections, onClose, onSent }) {
-  const { logCommunication, toast, go } = useApp()
+  const { logCommunication, mailBackend, sendMessage, toast, go } = useApp()
   const c = CHANNELS[channel]
-  const prov = channelProvider(channel, connections)
+  const prov = channelProvider(channel, connections, mailBackend)
   const [subject, setSubject] = useState('A quick update from MS Lending')
   const [body, setBody] = useState(
     channel === 'email'
@@ -76,14 +76,14 @@ function BulkComposeModal({ recipients, channel, connections, onClose, onSent })
       const first = b.name.split(' ')[0]
       const msg = body.replaceAll('{first}', first)
       if (channel === 'email') {
-        logCommunication(b.id, 'email', `Email sent — “${subject}”`, null)
+        sendMessage(b.id, 'email', msg, { subject, demoReply: false })
       } else {
         const preview = msg.length > 40 ? msg.slice(0, 40) + '…' : msg
         logCommunication(b.id, 'sms', `Text sent — “${preview}”`, null)
       }
     })
     toast(
-      `${channel === 'email' ? 'Emailed' : 'Texted'} ${recipients.length} borrower${recipients.length > 1 ? 's' : ''} via ${prov.name}`,
+      `${channel === 'email' ? 'Queued email for' : 'Texted'} ${recipients.length} borrower${recipients.length > 1 ? 's' : ''} via ${prov.name}`,
       '📤',
     )
     onSent()

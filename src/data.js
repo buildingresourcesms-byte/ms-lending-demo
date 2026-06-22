@@ -1078,8 +1078,8 @@ export const SKY = {
 
 /* ============================================================
    INTEGRATIONS — connect email, social, and the rest of the
-   tools a loan team already lives in. Demo-wired: connecting
-   simulates an OAuth handshake and persists in app state.
+   tools a loan team already lives in. Every item maps to a server
+   adapter in api/_connector-registry.js and reports real readiness.
    `icon` is a string mapped to a Lucide icon in Integrations.jsx.
    ============================================================ */
 export const INTEGRATION_CATEGORIES = [
@@ -1166,8 +1166,8 @@ export const INTEGRATIONS = [
     category: 'Social & Lead Sources',
     icon: 'mapPin',
     color: '#34A853',
-    blurb: 'Turn “Request a quote” messages and calls into tracked leads.',
-    perms: ['Read business messages', 'Read review activity'],
+    blurb: 'Sync locations, reviews, and profile performance from Google Business Profile.',
+    perms: ['Read locations and profile details', 'Read review and performance activity'],
     accountKind: 'account',
     defaultAccount: 'MS Lending — Madison, MS',
   },
@@ -1177,8 +1177,8 @@ export const INTEGRATIONS = [
     category: 'Social & Lead Sources',
     icon: 'briefcase',
     color: '#0A66C2',
-    blurb: 'Log referral conversations and connect with realtor partners.',
-    perms: ['Read connection messages', 'Read your profile'],
+    blurb: 'Link staff profiles now and receive lead events after LinkedIn partner approval.',
+    perms: ['Read the authorized profile', 'Receive approved Lead Sync events'],
     accountKind: 'handle',
     defaultAccount: 'Michelle Dugan',
   },
@@ -1277,10 +1277,3 @@ export const INTEGRATIONS = [
     defaultAccount: 'marketing@mslending.net',
   },
 ]
-
-/* A few already connected for the demo — ties into existing lead sources. */
-export const SEED_CONNECTIONS = {
-  facebook: { account: 'MS Lending, LLC', since: d(-124) },
-  zillow: { account: 'Premier Agent · Michelle D.', since: d(-64) },
-  gmail: { account: 'michelle@mslending.net', since: d(-88) },
-}

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
   Mail,
   Calendar,
@@ -17,28 +17,28 @@ import {
   Send,
   Plug,
   Check,
-  CheckCircle2,
-  ShieldCheck,
-  Loader2,
-  Link2,
   Copy,
   ArrowRight,
   Globe,
   Search as SearchIcon,
+  Loader2,
+  RefreshCw,
+  ServerCog,
+  Unplug,
 } from 'lucide-react'
 import { useApp } from '../store.jsx'
-import { INTEGRATIONS, INTEGRATION_CATEGORIES, OFFICERS, applyLinkFor, fmtDate } from '../data.js'
+import { INTEGRATIONS, INTEGRATION_CATEGORIES, OFFICERS, applyLinkFor } from '../data.js'
+import BackendSetupDialog from '../components/BackendSetupDialog.jsx'
+import { disconnectIntegrationBackend, integrationBackendStatus } from '../api.js'
 import {
   PageHeader,
   Card,
   Btn,
+  LinkBtn,
   Badge,
   Avatar,
-  Modal,
-  Field,
   FilterChip,
   SearchInput,
-  inputCls,
   EmptyState,
   cx,
 } from '../ui.jsx'
@@ -63,14 +63,6 @@ export const INTEGRATION_ICONS = {
   send: Send,
 }
 
-const ACCOUNT_LABEL = {
-  email: 'Account email',
-  page: 'Page name',
-  handle: 'Profile / handle',
-  phone: 'Phone number',
-  account: 'Account',
-}
-
 /* translucent brand-tint background from a hex color */
 const tint = (hex, alpha = '20') => hex + alpha
 
@@ -86,173 +78,48 @@ function BrandChip({ integration, size = 'h-11 w-11', icon = 'h-5 w-5' }) {
   )
 }
 
-/* ---------- connect / manage dialog ---------- */
-function ConnectDialog({ integration, connected, onClose }) {
-  const { connectIntegration, disconnectIntegration } = useApp()
-  const [account, setAccount] = useState(connected?.account ?? integration.defaultAccount)
-  const [working, setWorking] = useState(false)
-  const alive = useRef(true)
-  useEffect(() => () => { alive.current = false }, [])
-
-  const authorize = (e) => {
-    e.preventDefault()
-    setWorking(true)
-    // simulate the OAuth round-trip
-    setTimeout(() => {
-      if (!alive.current) return
-      connectIntegration(integration.id, account.trim() || integration.defaultAccount, integration.name)
-      onClose()
-    }, 1100)
-  }
-
-  /* already connected → manage view */
-  if (connected) {
-    return (
-      <Modal open onClose={onClose} title={`Manage ${integration.name}`} sub="Connection details and access.">
-        <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50/60 p-3.5">
-          <BrandChip integration={integration} />
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold text-navy-950">{connected.account}</p>
-            <p className="text-xs text-slate-400">Connected since {fmtDate(connected.since)}</p>
-          </div>
-          <Badge cls="bg-sage-50 text-sage-700 ring-sage-600/20" dot="bg-sage-500">
-            Active
-          </Badge>
-        </div>
-
-        <p className="mt-4 mb-1.5 text-xs font-medium text-slate-600">What MS Lending can do</p>
-        <ul className="space-y-1.5">
-          {integration.perms.map((p) => (
-            <li key={p} className="flex items-start gap-2 text-[13px] text-slate-600">
-              <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-sage-600" strokeWidth={2.5} />
-              {p}
-            </li>
-          ))}
-        </ul>
-
-        <div className="mt-5 flex items-center justify-between gap-2 border-t border-slate-100 pt-4">
-          <button
-            onClick={() => {
-              disconnectIntegration(integration.id, integration.name)
-              onClose()
-            }}
-            className="rounded-lg px-3 py-2 text-[13px] font-medium text-rose-600 transition-colors hover:bg-rose-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/40"
-          >
-            Disconnect
-          </button>
-          <Btn variant="outline" onClick={onClose}>
-            Done
-          </Btn>
-        </div>
-      </Modal>
-    )
-  }
-
-  /* not connected → OAuth-style consent */
-  return (
-    <Modal open onClose={working ? () => {} : onClose} title={`Connect ${integration.name}`} sub="Authorize access to link your account.">
-      <form onSubmit={authorize}>
-        <div className="flex items-center justify-center gap-3 py-1">
-          <span className="grid h-12 w-12 place-items-center rounded-2xl bg-navy-900 text-white">
-            <Plug className="h-5 w-5" strokeWidth={2} />
-          </span>
-          <Link2 className="h-4 w-4 text-slate-300" />
-          <BrandChip integration={integration} size="h-12 w-12" icon="h-6 w-6" />
-        </div>
-        <p className="mt-3 text-center text-[13px] text-slate-500">
-          <span className="font-medium text-navy-900">MS Lending</span> wants to connect to your{' '}
-          <span className="font-medium text-navy-900">{integration.name}</span> account.
-        </p>
-
-        <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50/60 p-3.5">
-          <p className="mb-1.5 text-xs font-medium text-slate-600">This will allow MS Lending to</p>
-          <ul className="space-y-1.5">
-            {integration.perms.map((p) => (
-              <li key={p} className="flex items-start gap-2 text-[13px] text-slate-600">
-                <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-sage-600" strokeWidth={2.5} />
-                {p}
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        <Field label={ACCOUNT_LABEL[integration.accountKind] ?? 'Account'} className="mt-4">
-          <input
-            className={inputCls}
-            value={account}
-            onChange={(e) => setAccount(e.target.value)}
-            disabled={working}
-          />
-        </Field>
-
-        <p className="mt-3 flex items-center gap-1.5 text-[11px] text-slate-400">
-          <ShieldCheck className="h-3.5 w-3.5 text-sage-500" />
-          Demo connection — no real account is accessed or stored.
-        </p>
-
-        <div className="mt-5 flex justify-end gap-2">
-          <Btn variant="ghost" onClick={onClose} disabled={working}>
-            Cancel
-          </Btn>
-          <Btn type="submit" disabled={working} className="min-w-[8.5rem]">
-            {working ? (
-              <>
-                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Connecting…
-              </>
-            ) : (
-              <>
-                <Link2 className="h-3.5 w-3.5" /> Authorize &amp; connect
-              </>
-            )}
-          </Btn>
-        </div>
-      </form>
-    </Modal>
-  )
-}
-
 /* ---------- a single integration card ---------- */
-function IntegrationCard({ integration, connected, onOpen }) {
+function IntegrationCard({ integration, state, onSetup, onDisconnect, busy }) {
+  const adapterReady = !!state
+  const configured = !!state?.appConfigured
+  const connected = !!state?.connected
+  const oauth = state?.authType === 'oauth2'
+  const liveOAuth = oauth && connected
+  const status = liveOAuth ? 'Connected' : configured ? (oauth ? 'Ready to authorize' : 'Server configured') : adapterReady ? 'Needs credentials' : 'Backend unavailable'
   return (
-    <div
-      className={cx(
-        'group flex flex-col rounded-xl border bg-white p-4 shadow-[0_1px_2px_rgba(16,24,40,0.04)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_10px_28px_-14px_rgba(16,24,40,0.22)]',
-        connected ? 'border-sage-300/70' : 'border-slate-200/80',
-      )}
-    >
+    <article className={cx('flex flex-col rounded-xl border bg-white p-4 shadow-[0_1px_2px_rgba(16,24,40,0.04)] dark:bg-white/[0.03]', liveOAuth ? 'border-sage-300/80 dark:border-sage-500/30' : 'border-slate-200/80 dark:border-white/10')}>
       <div className="flex items-start gap-3">
         <BrandChip integration={integration} />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <p className="truncate text-sm font-semibold text-navy-950">{integration.name}</p>
-            {connected && (
-              <CheckCircle2 className="h-4 w-4 shrink-0 text-sage-600" strokeWidth={2} />
-            )}
+            <Badge cls={liveOAuth ? 'bg-sage-50 text-sage-700 ring-sage-600/20' : configured ? 'bg-navy-100 text-navy-700 dark:bg-white/10 dark:text-white' : 'bg-amber-50 text-amber-700 ring-amber-600/20'}>
+              {liveOAuth ? 'Live' : configured ? 'Backend ready' : 'Adapter ready'}
+            </Badge>
           </div>
           <p className="mt-1 text-xs leading-snug text-slate-500">{integration.blurb}</p>
         </div>
       </div>
 
-      <div className="mt-3 flex items-center justify-between gap-2 border-t border-slate-100 pt-3">
-        {connected ? (
-          <span className="flex min-w-0 items-center gap-1.5 text-xs text-slate-500">
-            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-sage-500" />
-            <span className="truncate">{connected.account}</span>
-          </span>
-        ) : (
-          <span className="text-xs text-slate-400">Not connected</span>
-        )}
-        {connected ? (
-          <Btn variant="outline" sm onClick={() => onOpen(integration)}>
-            Manage
-          </Btn>
-        ) : (
-          <Btn variant="soft" sm onClick={() => onOpen(integration)}>
-            <Link2 className="h-3 w-3" /> Connect
-          </Btn>
-        )}
+      <div className="mt-3 flex-1 space-y-1">
+        {(state?.actions || []).slice(0, 3).map((action) => <p key={action} className="font-mono text-[10px] text-slate-400">{action}</p>)}
       </div>
-    </div>
+
+      {state?.approval && <p className="mt-3 rounded-md bg-amber-50 px-2 py-1.5 text-[10px] leading-snug text-amber-700 dark:bg-amber-500/10 dark:text-amber-200">{state.approval}</p>}
+
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3 dark:border-white/10">
+        <span className={cx('text-xs font-medium', liveOAuth ? 'text-sage-700' : configured ? 'text-navy-700 dark:text-slate-200' : 'text-amber-700')}>{status}</span>
+        <div className="flex gap-1.5">
+          <Btn variant="outline" sm onClick={() => onSetup(integration)}>Setup</Btn>
+          {oauth && configured && !connected && <LinkBtn href={state.connectUrl} variant="sage" sm>Connect</LinkBtn>}
+          {oauth && connected && state.tokenSource === 'browser' && (
+            <Btn variant="ghost" sm disabled={busy === integration.id} onClick={() => onDisconnect(integration.id)}>
+              {busy === integration.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Unplug className="h-3 w-3" />} Disconnect
+            </Btn>
+          )}
+        </div>
+      </div>
+    </article>
   )
 }
 
@@ -336,13 +203,40 @@ function WebsiteApplyCard() {
 }
 
 export default function Integrations() {
-  const { connections, emailReady, go } = useApp()
+  const { refreshConnections, toast } = useApp()
   const [cat, setCat] = useState('All')
   const [q, setQ] = useState('')
-  const [dialog, setDialog] = useState(null) // the integration being connected/managed
-
-  const connectedCount = Object.keys(connections).length
+  const [backend, setBackend] = useState(null)
+  const [setup, setSetup] = useState(null)
+  const [busy, setBusy] = useState(null)
   const query = q.trim().toLowerCase()
+
+  const loadBackend = useCallback(async () => {
+    setBackend(await integrationBackendStatus({ refresh: true }))
+    await refreshConnections(false)
+  }, [refreshConnections])
+  useEffect(() => {
+    loadBackend()
+    const params = new URLSearchParams(window.location.search)
+    const connected = params.get('connected') === '1' ? params.get('integration') : null
+    if (connected) {
+      toast(`${connected} connected successfully`, '✓')
+      window.history.replaceState({}, '', window.location.pathname)
+    }
+  }, [loadBackend, toast])
+
+  const disconnect = async (provider) => {
+    setBusy(provider)
+    try {
+      await disconnectIntegrationBackend(provider)
+      await loadBackend()
+      toast(`${provider} disconnected`, '✓')
+    } catch (error) {
+      toast(error.message || 'Could not disconnect integration', '⚠')
+    } finally {
+      setBusy(null)
+    }
+  }
 
   const visible = INTEGRATIONS.filter((it) => {
     if (cat !== 'All' && it.category !== cat) return false
@@ -356,73 +250,22 @@ export default function Integrations() {
     <div>
       <PageHeader
         title="Integrations"
-        sub="Email sends for real once connected. The rest are on the roadmap — marked live only when they actually work."
-        actions={
-          emailReady ? (
-            <Badge cls="bg-sage-50 text-sage-700 ring-sage-600/20" dot="bg-sage-500">Email live</Badge>
-          ) : (
-            <Badge cls="bg-slate-100 text-slate-500 dark:bg-white/10 dark:text-slate-300">Email not connected</Badge>
-          )
-        }
+        sub="Every connector has a server adapter, configuration contract, and honest activation status."
       />
 
-      {/* straight talk about what's live */}
-      <div className="mb-4 flex items-start gap-2.5 rounded-xl border border-amber-200/70 bg-amber-50 p-3 text-xs leading-relaxed text-amber-800 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-200">
-        <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
-        <span>
-          <span className="font-semibold">Straight talk:</span> only <span className="font-semibold">Email</span> is a live
-          connection today. The tools further down are placeholders for the production plan — they don’t send or receive yet,
-          and we won’t pretend otherwise.
-        </span>
-      </div>
-
-      {/* the one real connection */}
-      <Card className="mb-4" title="Email — your live connection" sub="Really sends from your own address. No password stored here.">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl" style={{ backgroundColor: '#EA433520' }}>
-              <Mail className="h-5 w-5" style={{ color: '#EA4335' }} strokeWidth={2} />
-            </span>
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-navy-950 dark:text-white">Send real email to borrowers & agents</p>
-              <p className="text-xs text-slate-400">Powered by EmailJS — connect once in Settings</p>
-            </div>
+      <Card className="mb-4" pad={false}>
+        <div className="flex flex-wrap items-center gap-3 px-5 py-4">
+          <span className="grid h-10 w-10 place-items-center rounded-xl bg-navy-100 text-navy-700 dark:bg-white/10 dark:text-white"><ServerCog className="h-5 w-5" /></span>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-navy-950 dark:text-white">Integration backend</p>
+            <p className="text-xs text-slate-400">{backend?.available ? `${Object.keys(backend.connectors || {}).length} adapters loaded · ${backend.runtime} runtime` : 'Checking the local API runtime…'}</p>
           </div>
-          {emailReady ? (
-            <Badge cls="bg-sage-50 text-sage-700 ring-sage-600/20" dot="bg-sage-500">Live ✓</Badge>
-          ) : (
-            <Btn variant="sage" onClick={() => go('settings')}>
-              <Plug className="h-3.5 w-3.5" /> Connect email
-            </Btn>
-          )}
+          {backend ? (
+            <Badge cls={backend.available ? 'bg-sage-50 text-sage-700 ring-sage-600/20' : 'bg-rose-50 text-rose-700 ring-rose-600/20'}>{backend.available ? 'API online' : 'API unavailable'}</Badge>
+          ) : <Loader2 className="h-4 w-4 animate-spin text-slate-400" />}
+          <Btn variant="ghost" sm aria-label="Refresh connector status" onClick={loadBackend}><RefreshCw className="h-3.5 w-3.5" /></Btn>
         </div>
       </Card>
-
-      {/* featured: website apply-button routing */}
-      <WebsiteApplyCard />
-
-      {/* connected spotlight */}
-      {connectedCount > 0 && (
-        <Card
-          className="mb-4"
-          title="Sample connections (not live)"
-          sub="Illustrating the production plan — these don’t send or receive yet."
-        >
-          <div className="flex flex-wrap gap-2">
-            {INTEGRATIONS.filter((it) => connections[it.id]).map((it) => (
-              <button
-                key={it.id}
-                onClick={() => setDialog(it)}
-                className="group flex items-center gap-2 rounded-full border border-slate-200/80 bg-white py-1 pl-1 pr-3 text-xs font-medium text-slate-600 transition-colors hover:border-slate-300 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-navy-500/40"
-              >
-                <BrandChip integration={it} size="h-6 w-6" icon="h-3.5 w-3.5" />
-                {it.name}
-                <span className="h-1.5 w-1.5 rounded-full bg-sage-500" />
-              </button>
-            ))}
-          </div>
-        </Card>
-      )}
 
       {/* filters */}
       <div className="mb-4 space-y-2.5">
@@ -462,8 +305,10 @@ export default function Integrations() {
                     <IntegrationCard
                       key={it.id}
                       integration={it}
-                      connected={connections[it.id]}
-                      onOpen={setDialog}
+                      state={backend?.connectors?.[it.id]}
+                      onSetup={setSetup}
+                      onDisconnect={disconnect}
+                      busy={busy}
                     />
                   ))}
                 </div>
@@ -473,13 +318,18 @@ export default function Integrations() {
         </div>
       )}
 
-      {dialog && (
-        <ConnectDialog
-          integration={dialog}
-          connected={connections[dialog.id]}
-          onClose={() => setDialog(null)}
+      <div className="mt-6">
+        <WebsiteApplyCard />
+      </div>
+
+      {setup && (
+        <BackendSetupDialog
+          integration={setup}
+          connectorState={backend?.connectors?.[setup.id]}
+          onClose={() => setSetup(null)}
         />
       )}
+
     </div>
   )
 }

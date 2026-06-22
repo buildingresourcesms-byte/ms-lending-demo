@@ -1,5 +1,6 @@
 import { getAccessToken, graph } from '../_mslib.js'
 import { cors } from '../_lib.js'
+import { requireIntegrationAccess } from '../_integration-access.js'
 
 /* Julene is in Madison, MS → Central. Times come back in this zone (the
    Prefer header), so start.dateTime is already local clock time. */
@@ -10,13 +11,14 @@ const display = (r) => r?.emailAddress?.name || r?.emailAddress?.address || ''
 /* Read upcoming calendar events (now → +N days), recurrences expanded.
    Uses /me/calendarView (NOT /me/events, which returns series masters). */
 export default async function handler(req, res) {
+  if (!requireIntegrationAccess(req, res)) return
   cors(res)
   if (req.method === 'OPTIONS') {
     res.status(200).end()
     return
   }
   try {
-    const token = await getAccessToken()
+    const token = await getAccessToken(req, res)
     const now = new Date()
     const days = Math.min(Math.max(Number(req.query.days) || 30, 1), 120)
     const end = new Date(now.getTime() + days * 86400000)

@@ -1,4 +1,5 @@
 import { getAccessToken, gmail, cors } from '../_lib.js'
+import { requireIntegrationAccess } from '../_integration-access.js'
 
 function header(headers, name) {
   const h = (headers || []).find((x) => x.name.toLowerCase() === name.toLowerCase())
@@ -8,13 +9,14 @@ function header(headers, name) {
 /* List recent mail (inbox + sent), normalized for the workspace UI.
    Optional ?q= Gmail search, e.g. ?q=from:someone@x.com */
 export default async function handler(req, res) {
+  if (!requireIntegrationAccess(req, res)) return
   cors(res)
   if (req.method === 'OPTIONS') {
     res.status(200).end()
     return
   }
   try {
-    const token = await getAccessToken()
+    const token = await getAccessToken(req, res)
     const q = req.query.q || 'in:inbox OR in:sent'
     const max = Math.min(Number(req.query.max) || 20, 40)
     const list = await gmail('messages?maxResults=' + max + '&q=' + encodeURIComponent(q), token)

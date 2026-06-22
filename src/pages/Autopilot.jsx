@@ -42,12 +42,12 @@ const KIND_TONE = {
 const textareaCls =
   'w-full rounded-lg border border-slate-300/70 bg-white px-3 py-2 text-[13px] leading-relaxed text-slate-700 transition-colors placeholder:text-slate-400 hover:border-slate-400/80 focus:border-navy-500 focus:outline-none focus:ring-2 focus:ring-navy-500/15 dark:border-white/10 dark:bg-navy-950 dark:text-slate-100'
 
-function SuggestionCard({ s, emailReady, onSend, onSnooze, onOpen }) {
+function SuggestionCard({ s, mailBackend, onSend, onSnooze, onOpen }) {
   const Icon = KIND_ICON[s.kind] ?? Sparkles
   const [channel, setChannel] = useState(s.channel)
   const [subject, setSubject] = useState(s.subject)
   const [body, setBody] = useState(s.body)
-  const realEmail = channel === 'email' && emailReady
+  const realEmail = channel === 'email' && !!mailBackend
 
   return (
     <Card pad={false}>
@@ -113,7 +113,7 @@ function SuggestionCard({ s, emailReady, onSend, onSnooze, onOpen }) {
 }
 
 export default function Autopilot() {
-  const { borrowers, seat, currentOfficer, sendMessage, setFollowUp, requestDocs, openLoan, emailReady, apHandled, markAutopilotDone, toast } = useApp()
+  const { borrowers, seat, currentOfficer, sendMessage, setFollowUp, requestDocs, openLoan, mailBackend, apHandled, markAutopilotDone, toast } = useApp()
 
   const suggestions = useMemo(
     () => buildSuggestions(borrowers, seat, apHandled),
@@ -165,7 +165,7 @@ export default function Autopilot() {
           </div>
           <div className="space-y-3">
             {suggestions.map((s) => (
-              <SuggestionCard key={s.key} s={s} emailReady={emailReady} onSend={onSend} onSnooze={onSnooze} onOpen={openLoan} />
+              <SuggestionCard key={s.key} s={s} mailBackend={mailBackend} onSend={onSend} onSnooze={onSnooze} onOpen={openLoan} />
             ))}
           </div>
         </>

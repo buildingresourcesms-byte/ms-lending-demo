@@ -22,7 +22,7 @@ export function env() {
 export const SCOPES =
   'offline_access openid profile https://graph.microsoft.com/Mail.Read https://graph.microsoft.com/Mail.Send https://graph.microsoft.com/User.Read https://graph.microsoft.com/Calendars.ReadWrite'
 
-export function authUrl() {
+export function authUrl(state) {
   const { clientId, redirectUri, tenant } = env()
   return (
     'https://login.microsoftonline.com/' +
@@ -34,8 +34,7 @@ export function authUrl() {
       redirect_uri: redirectUri,
       response_mode: 'query',
       scope: SCOPES,
-      // light CSRF marker; we don't persist it (single-user, one-time consent)
-      state: 'msl',
+      state,
     })
   )
 }
@@ -65,8 +64,11 @@ export async function exchangeCode(code) {
 }
 
 /* exchange the stored refresh token for a short-lived access token (hot path) */
-export async function getAccessToken() {
-  const { clientId, clientSecret, refreshToken } = env()
+export async function getAccessToken(req, res) {
+  const { browserRefreshToken, setRefreshToken } = await import('./_oauth.js')
+  const { clientId, clientSecret, refreshToken: serverRefreshToken } = env()
+  const browserToken = browserRefreshToken(req, 'outlook')
+  const refreshToken = browserToken || serverRefreshToken
   if (!clientId || !clientSecret || !refreshToken) throw new Error('Microsoft credentials not configured')
   const r = await fetch(tokenEndpoint(), {
     method: 'POST',
@@ -81,6 +83,7 @@ export async function getAccessToken() {
   })
   const j = await r.json()
   if (!r.ok) throw new Error('Token refresh failed: ' + JSON.stringify(j))
+  if (j.refresh_token && browserToken) setRefreshToken(res, 'outlook', j.refresh_token)
   return j.access_token
 }
 

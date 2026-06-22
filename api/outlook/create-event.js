@@ -1,5 +1,6 @@
 import { getAccessToken, graph } from '../_mslib.js'
 import { cors } from '../_lib.js'
+import { requireIntegrationAccess } from '../_integration-access.js'
 
 const TZ = 'Central Standard Time'
 
@@ -10,6 +11,7 @@ const TZ = 'Central Standard Time'
    - attendees: [{ email, name? }] — NOTE: passing attendees emails real
      invitations, so the caller must opt in deliberately. */
 export default async function handler(req, res) {
+  if (!requireIntegrationAccess(req, res)) return
   cors(res)
   if (req.method === 'OPTIONS') {
     res.status(200).end()
@@ -26,7 +28,7 @@ export default async function handler(req, res) {
       return
     }
     const tz = timeZone || TZ
-    const token = await getAccessToken()
+    const token = await getAccessToken(req, res)
 
     const payload = {
       subject,

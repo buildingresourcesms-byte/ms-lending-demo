@@ -2,7 +2,6 @@ import { createContext, useContext, useMemo, useState, useCallback, useRef, useE
 import {
   SEED_BORROWERS,
   SEED_TASKS,
-  SEED_CONNECTIONS,
   SEED_AGENT_INTROS,
   SEED_MESSAGES,
   STATUSES,
@@ -17,7 +16,7 @@ import {
   isStuck,
   isClosedOut,
 } from './data.js'
-import { backendProvider, fetchInbox, sendViaBackend } from './api.js'
+import { backendProvider, fetchInbox, integrationBackendStatus, runIntegrationAction, sendViaBackend } from './api.js'
 
 const Ctx = createContext(null)
 export const useApp = () => useContext(Ctx)
@@ -69,14 +68,19 @@ const DEFAULT_CRM = {
 }
 
 export function AppProvider({ children }) {
-  const [view, setView] = useState({ page: 'dashboard' })
+  const [view, setView] = useState(() => {
+    try {
+      return new URLSearchParams(window.location.search).has('integration') ? { page: 'integrations' } : { page: 'dashboard' }
+    } catch {
+      return { page: 'dashboard' }
+    }
+  })
   const [borrowers, setBorrowers] = useState(SAVED?.borrowers ?? SEED_BORROWERS)
   const [tasks, setTasks] = useState(SAVED?.tasks ?? SEED_TASKS)
   const [messages, setMessages] = useState(SAVED?.messages ?? SEED_MESSAGES)
   const [apHandled, setApHandled] = useState(SAVED?.apHandled ?? {}) // autopilot suggestions acted on / snoozed
   const [toasts, setToasts] = useState([])
   const [crm, setCrmState] = useState(DEFAULT_CRM)
-  const [connections, setConnections] = useState(SAVED?.connections ?? SEED_CONNECTIONS)
   const [seat, setSeatState] = useState('julene') // 'team' or an officer id; defaults to the signed-in officer
   const [notifPrefs, setNotifPrefs] = useState(
     SAVED?.notifPrefs ?? {
@@ -97,13 +101,6 @@ export function AppProvider({ children }) {
     }
   })
   const [celebrate, setCelebrate] = useState(0)
-  const [emailCfg, setEmailCfgState] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem('msl-emailjs')) || null
-    } catch {
-      return null
-    }
-  })
   const [palette, setPaletteState] = useState(() => {
     try {
       return localStorage.getItem('msl-palette') ?? 'classic'
@@ -114,6 +111,7 @@ export function AppProvider({ children }) {
   // real two-way mail backend: 'outlook' | 'gmail' | null (null = demo / not connected).
   // Probed once from /api/health — absent on the static demo, so it stays null there.
   const [mailBackend, setMailBackend] = useState(null)
+  const [connections, setConnections] = useState({})
   const idSeq = useRef(maxSavedSeq(SAVED))
 
   const setNotifPref = useCallback((key, val) => setNotifPrefs((p) => ({ ...p, [key]: val })), [])
@@ -147,18 +145,6 @@ export function AppProvider({ children }) {
     }
   }, [])
 
-  /* EmailJS connection (kept in its own key so Reset demo data doesn't unplug it) */
-  const setEmailCfg = useCallback((cfg) => {
-    setEmailCfgState(cfg)
-    try {
-      if (cfg) localStorage.setItem('msl-emailjs', JSON.stringify(cfg))
-      else localStorage.removeItem('msl-emailjs')
-    } catch {
-      /* ignore */
-    }
-  }, [])
-  const emailReady = !!(emailCfg?.serviceId && emailCfg?.templateId && emailCfg?.publicKey)
-
   useEffect(() => {
     const root = document.documentElement
     if (theme === 'dark') root.classList.add('dark')
@@ -171,16 +157,38 @@ export function AppProvider({ children }) {
     else root.dataset.theme = palette
   }, [palette])
 
-  // detect a connected real mailbox (Outlook/Gmail backend) once on load
+  const refreshMailBackend = useCallback(async (refresh = true) => {
+    const provider = await backendProvider(refresh)
+    setMailBackend(provider)
+    return provider
+  }, [])
+
+  const refreshConnections = useCallback(async (refresh = true) => {
+    const status = await integrationBackendStatus({ refresh })
+    const active = Object.fromEntries(
+      Object.values(status.connectors || {})
+        .filter((item) => item.connected)
+        .map((item) => [item.id, { account: item.name, since: d(0), authType: item.authType }]),
+    )
+    setConnections(active)
+    return active
+  }, [])
+
+  // Detect a connected OAuth mailbox once on load. Static builds have no API,
+  // so they stay in clearly labeled demo mode.
   useEffect(() => {
     let alive = true
-    backendProvider()
+    backendProvider(true)
       .then((p) => alive && setMailBackend(p))
       .catch(() => {})
     return () => {
       alive = false
     }
   }, [])
+
+  useEffect(() => {
+    refreshConnections(true).catch(() => {})
+  }, [refreshConnections])
 
   const currentOfficer = seat === 'team' ? null : officerById(seat)
 
@@ -476,9 +484,9 @@ export function AppProvider({ children }) {
       const text = (body ?? '').trim()
       if (!text) return
       const mid = 'msg' + ++idSeq.current
-      const emailJsReady = channel === 'email' && !!(emailCfg?.serviceId && emailCfg?.templateId && emailCfg?.publicKey)
       const useBackend = channel === 'email' && !!mailBackend // real Outlook/Gmail send
-      const sendingLive = useBackend || emailJsReady
+      const messagingProvider = channel === 'sms' ? (connections.sms ? 'sms' : connections.whatsapp ? 'whatsapp' : null) : null
+      const sendingLive = useBackend || !!messagingProvider
 
       // optimistic: the message appears instantly
       setMessages((m) => ({
@@ -489,8 +497,6 @@ export function AppProvider({ children }) {
       patchBorrower(bid, (b) => logEvent({ ...b, lastContact: d(0) }, channel, `${channel === 'email' ? 'Email' : 'Text'} sent — “${preview}”`))
 
       const b = borrowers.find((x) => x.id === bid)
-      const officer = officerById(b?.officerId ?? (seat === 'team' ? 'michelle' : seat))
-
       if (useBackend) {
         // send through the real connected mailbox (Outlook / Gmail backend)
         ;(async () => {
@@ -507,29 +513,15 @@ export function AppProvider({ children }) {
             toast('Email didn’t send — check your mailbox connection', '⚠️')
           }
         })()
-      } else if (emailJsReady) {
-        // fallback: send through EmailJS (client-side, no backend)
+      } else if (messagingProvider) {
         ;(async () => {
           try {
-            const emailjs = (await import('@emailjs/browser')).default
-            await emailjs.send(
-              emailCfg.serviceId,
-              emailCfg.templateId,
-              {
-                to_email: b?.email,
-                to_name: b?.name,
-                subject: opts.subject || `Update on your loan with MS Lending`,
-                message: text,
-                from_name: officer?.name ?? 'MS Lending',
-                reply_to: emailCfg.replyTo || officer?.email || '',
-              },
-              { publicKey: emailCfg.publicKey },
-            )
+            await runIntegrationAction(messagingProvider, messagingProvider === 'whatsapp' ? 'send_whatsapp' : 'send_sms', { to: b?.phone, body: text })
             setMessages((m) => ({ ...m, [bid]: (m[bid] ?? []).map((x) => (x.id === mid ? { ...x, status: 'sent', real: true } : x)) }))
-            toast(`Email delivered to ${b?.name?.split(' ')[0] ?? 'borrower'} ✓`, '📧')
+            toast(`${messagingProvider === 'whatsapp' ? 'WhatsApp' : 'Text'} sent to ${b?.name?.split(' ')[0] ?? 'borrower'} ✓`, '📱')
           } catch {
             setMessages((m) => ({ ...m, [bid]: (m[bid] ?? []).map((x) => (x.id === mid ? { ...x, status: 'failed' } : x)) }))
-            toast('Email didn’t send — check Email setup in Settings', '⚠️')
+            toast('Message didn’t send — check the integration connection', '⚠️')
           }
         })()
       } else if (opts.demoReply !== false) {
@@ -543,29 +535,19 @@ export function AppProvider({ children }) {
         }, 2400)
       }
     },
-    [patchBorrower, toast, emailCfg, borrowers, seat, mailBackend],
+    [patchBorrower, toast, borrowers, mailBackend, connections],
   )
 
-  const sendTestEmail = useCallback(
-    async (cfg) => {
-      const officer = officerById(seat === 'team' ? 'julene' : seat)
-      const emailjs = (await import('@emailjs/browser')).default
-      return emailjs.send(
-        cfg.serviceId,
-        cfg.templateId,
-        {
-          to_email: cfg.replyTo || officer?.email,
-          to_name: officer?.name ?? 'MS Lending',
-          subject: 'Test from your MS Lending workspace ✓',
-          message: 'If you’re reading this, your workspace can now send real emails to your borrowers. 🎉',
-          from_name: officer?.name ?? 'MS Lending',
-          reply_to: cfg.replyTo || officer?.email || '',
-        },
-        { publicKey: cfg.publicKey },
-      )
-    },
-    [seat],
-  )
+  const placeCall = useCallback(async (bid, note = '') => {
+    const borrower = borrowers.find((item) => item.id === bid)
+    if (!connections.dialer) {
+      logCommunication(bid, 'call', `Call logged${note.trim() ? ' — ' + note.trim() : ''}`, 'Call logged')
+      return { live: false }
+    }
+    await runIntegrationAction('dialer', 'place_call', { to: borrower?.phone })
+    logCommunication(bid, 'call', `Outbound call placed${note.trim() ? ' — ' + note.trim() : ''}`, 'Call started')
+    return { live: true }
+  }, [borrowers, connections, logCommunication])
 
   /* autopilot: suppress a suggestion for N days after acting/snoozing */
   const markAutopilotDone = useCallback((key, days = 3) => {
@@ -594,27 +576,6 @@ export function AppProvider({ children }) {
     [toast],
   )
 
-  /* ---------- integrations ---------- */
-  const connectIntegration = useCallback(
-    (id, account, name) => {
-      setConnections((c) => ({ ...c, [id]: { account, since: d(0) } }))
-      toast(`${name ?? 'Integration'} connected`, '🔗')
-    },
-    [toast],
-  )
-
-  const disconnectIntegration = useCallback(
-    (id, name) => {
-      setConnections((c) => {
-        const next = { ...c }
-        delete next[id]
-        return next
-      })
-      toast(`${name ?? 'Integration'} disconnected`, '✓')
-    },
-    [toast],
-  )
-
   /* ---------- dashboard metrics (scoped to the active seat) ---------- */
   const metrics = useMemo(() => {
     const mine = seat === 'team' ? borrowers : borrowers.filter((b) => b.officerId === seat)
@@ -639,12 +600,12 @@ export function AppProvider({ children }) {
     try {
       localStorage.setItem(
         PERSIST_KEY,
-        JSON.stringify({ v: PERSIST_VERSION, data: { borrowers, tasks, messages, connections, agentIntros, agentLinks, notifPrefs, apHandled } }),
+        JSON.stringify({ v: PERSIST_VERSION, data: { borrowers, tasks, messages, agentIntros, agentLinks, notifPrefs, apHandled } }),
       )
     } catch {
       /* storage unavailable (private mode) — stays in memory this session */
     }
-  }, [borrowers, tasks, messages, connections, agentIntros, agentLinks, notifPrefs, apHandled])
+  }, [borrowers, tasks, messages, agentIntros, agentLinks, notifPrefs, apHandled])
 
   const value = {
     view,
@@ -673,22 +634,19 @@ export function AppProvider({ children }) {
     logCommunication,
     messages,
     sendMessage,
+    placeCall,
     markRead,
     apHandled,
     markAutopilotDone,
     resetDemo,
-    emailCfg,
-    setEmailCfg,
-    emailReady,
     mailBackend,
-    sendTestEmail,
+    refreshMailBackend,
+    refreshConnections,
     agentIntros,
     logIntro,
     agentLinks,
     connectAgent,
     connections,
-    connectIntegration,
-    disconnectIntegration,
     seat,
     setSeat,
     currentOfficer,

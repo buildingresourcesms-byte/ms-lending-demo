@@ -1,142 +1,114 @@
-# Real two-way email — backend setup
+# Integration backend handoff
 
-This turns the workspace into a **real product**: it reads Julene's actual inbox and sends
-real email, in-thread. The static demo on GitHub Pages keeps working untouched — this is
-the *live* deployment on Vercel: **https://ms-lending-demo.vercel.app**
+Every integration displayed in the workspace has a server adapter in
+`api/_connector-registry.js`. The registry is the source of truth for authentication,
+required environment values, capabilities, supported actions, provider limitations,
+callback URLs, and webhook URLs.
 
-`julene@mslending.net` runs on **Microsoft 365** (via GoDaddy, with Proofpoint filtering
-inbound mail), so the **Outlook / Microsoft 365** path below is the one to follow. A Gmail
-path is also built in (see the bottom) if you ever want to connect a Google account too.
+## Run locally
 
-I (Claude) wrote all the code. The steps below are the parts only **you** can do, because
-they touch your own accounts — same as the one-time GitHub login you did earlier. When you
-finish, ping me and we verify a real send + a real reply landing in the app, together.
-
----
-
-## What's already built (in this repo)
-
-```
-api/
-  _mslib.js              shared Microsoft Graph helpers
-  outlook/auth.js        starts Microsoft sign-in
-  outlook/callback.js    finishes sign-in, shows your refresh token
-  outlook/messages.js    reads recent inbox + sent mail
-  outlook/send.js        sends real email (in-thread replies)
-  _lib.js, gmail/*       the same thing for Gmail (optional)
-  health.js              status probe (tells the app which inbox is live)
-vercel.json              build config
-src/api.js               the app's client (auto-routes to Outlook or Gmail)
+```powershell
+npm install
+npm run dev
 ```
 
-No new dependencies — plain `fetch` against the Microsoft Graph API.
+`npm run dev` now serves both Vite and the `api/` serverless handlers. Open
+`http://127.0.0.1:5173/api/integrations/status` to inspect all connector contracts. Missing
+credentials are reported by name; secret values are never returned.
 
-> ⚠️ **One thing to know up front (so it doesn't surprise you):** Microsoft 365 usually
-> requires an **admin** to approve a new app once before a regular user can connect it.
-> The admin/owner of `mslending.net` (likely **Michelle Dugan**) may need to click one
-> "Grant admin consent" button. I'll give you the exact thing to send her if you hit that
-> screen. Everything else you can do yourself.
+## Shared API contract
 
----
+| Route | Purpose |
+|---|---|
+| `GET /api/integrations/status` | Read configuration, connection, capability, and action status for all adapters |
+| `GET /api/integrations/auth?provider=ID` | Start generic OAuth connectors |
+| `GET /api/integrations/callback?provider=ID` | Complete generic OAuth connectors |
+| `POST /api/integrations/disconnect?provider=ID` | Remove a browser OAuth connection |
+| `POST /api/integrations/action` | Run an allow-listed provider action |
+| `GET/POST /api/integrations/webhook?provider=ID` | Verify and normalize inbound provider events |
 
-## ✅ Already done
-- [x] **App deployed to Vercel** → https://ms-lending-demo.vercel.app
-
-So we start at the Microsoft step.
-
----
-
-## Outlook / Microsoft 365 setup
-
-### 1. Sign in to the Microsoft admin portal — *with the right account*
-Go directly to **https://entra.microsoft.com**.
-
-⚠️ Sign in with the **Microsoft 365 work account** — Julene's `…@mslending.net` email +
-its email password. **Not** the GoDaddy.com login. (GoDaddy hides this portal, so you have
-to go to the Microsoft URL directly. This is the #1 thing people get stuck on.)
-
-### 2. Register the app
-1. Left menu → **Applications → App registrations → + New registration**.
-2. Name: `MS Lending Workspace`.
-3. Supported account types: **Accounts in this organizational directory only (single tenant)**.
-4. Click **Register**.
-5. On the app's **Overview** page, copy two values:
-   - **Application (client) ID**
-   - **Directory (tenant) ID**
-
-### 3. Add the redirect URL
-1. Left menu (within the app) → **Authentication → + Add a platform → Web**.
-2. Redirect URI — paste exactly:
-   ```
-   https://ms-lending-demo.vercel.app/api/outlook/callback
-   ```
-3. **Configure / Save.**
-
-### 4. Create a client secret
-1. **Certificates & secrets → + New client secret** → Add.
-2. **Copy the secret's "Value" immediately** (it's only shown once — not the "Secret ID").
-
-### 5. Add the mailbox + calendar permissions
-1. **API permissions → + Add a permission → Microsoft Graph → Delegated permissions**.
-2. Add these five (search each, tick it): `Mail.Read`, `Mail.Send`, `Calendars.ReadWrite`, `offline_access`, `User.Read`.
-   - **Delegated**, not Application. (Delegated = just Julene's own mailbox + calendar.)
-   - `Calendars.ReadWrite` is what powers the in-app calendar (reads her real schedule + can add events). None of these need a *separate* consent — the one admin-consent click below covers them all.
-3. If you (or the owner) have admin rights, click **"Grant admin consent for …"** now — that
-   avoids the approval wall later. If you can't, that's fine — see the note in step 7.
-
-### 6. Add the secrets to Vercel
-In the Vercel project → **Settings → Environment Variables**, add:
-
-| Name                    | Value                                                    |
-|-------------------------|----------------------------------------------------------|
-| `OUTLOOK_CLIENT_ID`     | Application (client) ID (step 2)                         |
-| `OUTLOOK_CLIENT_SECRET` | the secret **Value** (step 4)                           |
-| `OUTLOOK_TENANT`        | Directory (tenant) ID (step 2) — or `mslending.net`     |
-| `OUTLOOK_REDIRECT_URI`  | `https://ms-lending-demo.vercel.app/api/outlook/callback` |
-
-Then **Deployments → … → Redeploy** so they take effect.
-
-### 7. Authorize the mailbox (one sign-in)
-1. Visit **https://ms-lending-demo.vercel.app/api/outlook/auth**.
-2. Sign in as Julene and approve.
-   - **If you see "Need admin approval"** → that's the admin-consent wall. The account owner
-     (Michelle) needs to approve it once. Easiest: send her this link to click & approve —
-     I'll generate the exact URL for you once your Client ID is set (it looks like
-     `https://login.microsoftonline.com/<tenant>/adminconsent?client_id=<your-client-id>`).
-     After she approves once, redo this step and it'll go through.
-3. The page shows a **refresh token**. Copy it.
-4. In Vercel → add one more env var, then **Redeploy**:
-
-   | Name                     | Value         |
-   |--------------------------|---------------|
-   | `OUTLOOK_REFRESH_TOKEN`  | (the token)   |
-
-### 8. Confirm it's live
-Visit **https://ms-lending-demo.vercel.app/api/health** — you should see:
+Action request:
 
 ```json
-{ "ok": true, "outlookConfigured": true, "gmailConfigured": false, "provider": "outlook" }
+{
+  "provider": "gcal",
+  "action": "list_events",
+  "payload": { "max": 25 }
+}
 ```
 
-When `provider` is `"outlook"`, **ping me.** That's my signal to wire the Inbox to your live
-mail and run a real send + real receive test with you watching.
+Live data/actions are enabled automatically in local development and fail closed on deployed
+runtimes. For a browser deployment, set `INTEGRATION_ACTIONS_ENABLED=true` and
+`INTEGRATION_ALLOWED_ORIGIN` to the exact app origin after application authentication is in
+place. Server-to-server callers can instead send `INTEGRATION_API_SECRET` as
+`X-Integration-Api-Key` or a bearer token.
 
----
+Normalized webhooks are delivered to `INTEGRATION_EVENT_SINK_URL` when configured. Set
+`INTEGRATION_EVENT_SINK_SECRET` to add a bearer token. Without a sink, signed webhooks are
+validated and normalized but intentionally not persisted.
 
-## Notes
-- Julene's email **password never touches this app.** Microsoft's OAuth holds the keys; the
-  app only gets a revocable token. Remove access anytime at
-  [myaccount.microsoft.com](https://myaccount.microsoft.com/).
-- **Proofpoint / MX:** nothing to change. The app talks to your mailbox directly over Microsoft
-  Graph; the inbound mail filter is untouched.
-- This is single-user (Julene). Adding more loan officers later means per-user sign-in + a
-  small database — a clean next step, not needed now.
-- Cost: Vercel free tier and the Graph API free quota cover this use easily.
+## Connector configuration
 
----
+All OAuth callback URLs use the deployed origin. Generic callbacks must retain the
+`provider` query parameter shown in the Integrations setup dialog.
 
-## (Optional) Gmail path
-If you ever want to connect a Google account instead/as well, the Gmail functions are built
-too. Set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`
-(`…/api/gmail/callback`) from a Google Cloud OAuth client (Gmail API enabled), authorize at
-`…/api/gmail/auth`, then set `GOOGLE_REFRESH_TOKEN`. The app uses Outlook when both are set.
+| Connector | Authentication | Required environment values | Implemented actions |
+|---|---|---|---|
+| Microsoft 365 | OAuth 2.0 | `OUTLOOK_CLIENT_ID`, `OUTLOOK_CLIENT_SECRET`, `OUTLOOK_TENANT`, `OUTLOOK_REDIRECT_URI` | mail read/send, calendar read/create |
+| Gmail | OAuth 2.0 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI` | mail read/send |
+| Google Calendar | OAuth 2.0 | `GCAL_CLIENT_ID`, `GCAL_CLIENT_SECRET`, `GCAL_REDIRECT_URI` | `list_events`, `create_event` |
+| Facebook Lead Ads | Meta OAuth + signed webhook | `META_CLIENT_ID`, `META_CLIENT_SECRET`, `FACEBOOK_REDIRECT_URI`, `META_VERIFY_TOKEN` | `list_pages`, `list_leads` |
+| Instagram | Meta OAuth + signed webhook | `META_CLIENT_ID`, `META_CLIENT_SECRET`, `INSTAGRAM_REDIRECT_URI`, `META_VERIFY_TOKEN` | `list_conversations` |
+| Zillow Premier Agent | Signed inbound webhook | `ZILLOW_WEBHOOK_SECRET` | `receive_lead` |
+| Google Business Profile | OAuth 2.0 | `GBP_CLIENT_ID`, `GBP_CLIENT_SECRET`, `GBP_REDIRECT_URI` | `list_accounts`, `list_locations`, `list_reviews` |
+| LinkedIn | OAuth 2.0 + partner webhook | `LINKEDIN_CLIENT_ID`, `LINKEDIN_CLIENT_SECRET`, `LINKEDIN_REDIRECT_URI` | `get_profile` |
+| Text Messaging | Twilio credentials + signed webhook | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER` | `send_sms` |
+| WhatsApp | Twilio credentials + signed webhook | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_NUMBER` | `send_whatsapp` |
+| Phone Dialer | Twilio credentials + signed webhook | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER`, `TWILIO_VOICE_WEBHOOK_URL` | `place_call` |
+| DocuSign | OAuth 2.0 + Connect webhook | `DOCUSIGN_CLIENT_ID`, `DOCUSIGN_CLIENT_SECRET`, `DOCUSIGN_REDIRECT_URI`, `DOCUSIGN_ACCOUNT_ID` | `create_envelope`, `get_envelope` |
+| Dropbox | OAuth 2.0 + webhook | `DROPBOX_CLIENT_ID`, `DROPBOX_CLIENT_SECRET`, `DROPBOX_REDIRECT_URI` | `list_folder`, `upload_file` |
+| Zapier | Outbound webhook | `ZAPIER_WEBHOOK_URL` | `trigger` |
+| QuickBooks Online | OAuth 2.0 + signed webhook | `QUICKBOOKS_CLIENT_ID`, `QUICKBOOKS_CLIENT_SECRET`, `QUICKBOOKS_REDIRECT_URI` | `query`, `create_customer` |
+| Mailchimp | OAuth 2.0 + webhook | `MAILCHIMP_CLIENT_ID`, `MAILCHIMP_CLIENT_SECRET`, `MAILCHIMP_REDIRECT_URI` | `list_audiences`, `upsert_contact` |
+
+Optional webhook verification values are `ZAPIER_WEBHOOK_SECRET`,
+`LINKEDIN_WEBHOOK_SECRET`, `DOCUSIGN_CONNECT_SECRET`,
+`QUICKBOOKS_WEBHOOK_VERIFIER`, and `MAILCHIMP_WEBHOOK_SECRET`.
+
+Server-managed OAuth tokens can be supplied without browser consent using this universal
+pattern:
+
+```text
+CONNECTOR_<ID>_ACCESS_TOKEN
+CONNECTOR_<ID>_REFRESH_TOKEN
+CONNECTOR_<ID>_REALM_ID       # QuickBooks only
+```
+
+For example, Google Calendar uses `CONNECTOR_GCAL_REFRESH_TOKEN`. Browser-managed OAuth
+tokens use Secure, HTTP-only, SameSite cookies. The token-store boundary is isolated in
+`api/_oauth.js` and `api/_connector-oauth.js` so it can be replaced with encrypted database
+storage during a multi-user port.
+
+## Provider limitations
+
+- Meta lead and messaging permissions require App Review.
+- Instagram messaging requires a professional account connected to a Facebook Page.
+- Zillow lead delivery requires Zillow partner access or a supported lead-routing export.
+- Google Business Messages was discontinued; the adapter covers locations, reviews, and
+  profile performance instead.
+- LinkedIn does not expose general direct-message access. Lead Sync is partner-restricted.
+- WhatsApp business-initiated messages require an approved sender and templates.
+- DocuSign defaults to its demo API until production go-live review is complete.
+
+These limitations are returned by the status API and shown directly on the relevant card.
+
+## Verification before production data
+
+```powershell
+npm test
+npm run build
+```
+
+After credentials are added, verify each configured adapter with a non-sensitive test
+account. Real borrower data must not be used until authentication, encrypted token storage,
+audit logging, retention, and compliance controls are reviewed for production.

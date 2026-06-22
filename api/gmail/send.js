@@ -1,4 +1,5 @@
 import { getAccessToken, gmail, cors } from '../_lib.js'
+import { requireIntegrationAccess } from '../_integration-access.js'
 
 function b64url(s) {
   return Buffer.from(s, 'utf-8').toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
@@ -7,6 +8,7 @@ function b64url(s) {
 /* Send a real email through the authorized Gmail account.
    Body: { to, subject, body, threadId? } — threadId keeps replies in-thread. */
 export default async function handler(req, res) {
+  if (!requireIntegrationAccess(req, res)) return
   cors(res)
   if (req.method === 'OPTIONS') {
     res.status(200).end()
@@ -22,7 +24,7 @@ export default async function handler(req, res) {
       res.status(400).json({ error: 'to and body are required' })
       return
     }
-    const token = await getAccessToken()
+    const token = await getAccessToken(req, res)
     const mime =
       `To: ${to}\r\n` +
       `Subject: ${subject || ''}\r\n` +

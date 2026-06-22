@@ -1,0 +1,268 @@
+/* Central integration contract. Every product card must have an entry here.
+   The registry contains no secrets; it only names required environment values,
+   provider capabilities, OAuth endpoints, and the actions exposed by our adapter. */
+
+const oauth = (options) => ({ authType: 'oauth2', tokenAuth: 'body', ...options })
+const configured = (names) => names.every((name) => !!process.env[name])
+
+export const CONNECTORS = {
+  outlook: {
+    id: 'outlook',
+    name: 'Microsoft 365',
+    authType: 'oauth2',
+    native: true,
+    env: ['OUTLOOK_CLIENT_ID', 'OUTLOOK_CLIENT_SECRET', 'OUTLOOK_TENANT', 'OUTLOOK_REDIRECT_URI'],
+    capabilities: ['mail.read', 'mail.send', 'calendar.read', 'calendar.write'],
+    actions: ['list_messages', 'send_message', 'list_events', 'create_event'],
+    docsUrl: 'https://learn.microsoft.com/entra/identity-platform/v2-oauth2-auth-code-flow',
+  },
+  gmail: {
+    id: 'gmail',
+    name: 'Gmail',
+    authType: 'oauth2',
+    native: true,
+    env: ['GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'GOOGLE_REDIRECT_URI'],
+    capabilities: ['mail.read', 'mail.send'],
+    actions: ['list_messages', 'send_message'],
+    docsUrl: 'https://developers.google.com/identity/protocols/oauth2/web-server',
+  },
+  gcal: oauth({
+    id: 'gcal',
+    name: 'Google Calendar',
+    env: ['GCAL_CLIENT_ID', 'GCAL_CLIENT_SECRET', 'GCAL_REDIRECT_URI'],
+    clientIdEnv: 'GCAL_CLIENT_ID',
+    clientSecretEnv: 'GCAL_CLIENT_SECRET',
+    redirectEnv: 'GCAL_REDIRECT_URI',
+    authorizeUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
+    tokenUrl: 'https://oauth2.googleapis.com/token',
+    scope: 'openid email https://www.googleapis.com/auth/calendar.events',
+    authorizeParams: { access_type: 'offline', prompt: 'consent' },
+    capabilities: ['calendar.read', 'calendar.write'],
+    actions: ['list_events', 'create_event'],
+    docsUrl: 'https://developers.google.com/calendar/api/guides/auth',
+  }),
+  facebook: oauth({
+    id: 'facebook',
+    name: 'Facebook Lead Ads',
+    env: ['META_CLIENT_ID', 'META_CLIENT_SECRET', 'FACEBOOK_REDIRECT_URI', 'META_VERIFY_TOKEN'],
+    clientIdEnv: 'META_CLIENT_ID',
+    clientSecretEnv: 'META_CLIENT_SECRET',
+    redirectEnv: 'FACEBOOK_REDIRECT_URI',
+    authorizeUrl: 'https://www.facebook.com/v22.0/dialog/oauth',
+    tokenUrl: 'https://graph.facebook.com/v22.0/oauth/access_token',
+    scope: 'pages_show_list,pages_read_engagement,leads_retrieval,pages_messaging',
+    capabilities: ['leads.read', 'pages.read', 'messages.read'],
+    actions: ['list_pages', 'list_leads'],
+    webhook: true,
+    approval: 'Meta App Review is required for Page leads and messaging.',
+    docsUrl: 'https://developers.facebook.com/docs/marketing-api/guides/lead-ads/retrieving',
+  }),
+  instagram: oauth({
+    id: 'instagram',
+    name: 'Instagram',
+    env: ['META_CLIENT_ID', 'META_CLIENT_SECRET', 'INSTAGRAM_REDIRECT_URI', 'META_VERIFY_TOKEN'],
+    clientIdEnv: 'META_CLIENT_ID',
+    clientSecretEnv: 'META_CLIENT_SECRET',
+    redirectEnv: 'INSTAGRAM_REDIRECT_URI',
+    authorizeUrl: 'https://www.facebook.com/v22.0/dialog/oauth',
+    tokenUrl: 'https://graph.facebook.com/v22.0/oauth/access_token',
+    scope: 'instagram_basic,instagram_manage_messages,pages_show_list,pages_messaging',
+    capabilities: ['profile.read', 'messages.read'],
+    actions: ['list_conversations'],
+    webhook: true,
+    approval: 'Meta App Review and a professional Instagram account are required.',
+    docsUrl: 'https://developers.facebook.com/docs/messenger-platform/instagram',
+  }),
+  zillow: {
+    id: 'zillow',
+    name: 'Zillow Premier Agent',
+    authType: 'webhook',
+    env: ['ZILLOW_WEBHOOK_SECRET'],
+    capabilities: ['leads.receive'],
+    actions: ['receive_lead'],
+    webhook: true,
+    approval: 'Zillow partner access or a supported lead-routing export is required.',
+    docsUrl: 'https://www.zillowgroup.com/developers/',
+  },
+  gbp: oauth({
+    id: 'gbp',
+    name: 'Google Business Profile',
+    env: ['GBP_CLIENT_ID', 'GBP_CLIENT_SECRET', 'GBP_REDIRECT_URI'],
+    clientIdEnv: 'GBP_CLIENT_ID',
+    clientSecretEnv: 'GBP_CLIENT_SECRET',
+    redirectEnv: 'GBP_REDIRECT_URI',
+    authorizeUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
+    tokenUrl: 'https://oauth2.googleapis.com/token',
+    scope: 'openid email https://www.googleapis.com/auth/business.manage',
+    authorizeParams: { access_type: 'offline', prompt: 'consent' },
+    capabilities: ['locations.read', 'reviews.read', 'performance.read'],
+    actions: ['list_accounts', 'list_locations', 'list_reviews'],
+    approval: 'Google Business Messages was discontinued; this adapter targets locations, reviews, and performance data.',
+    docsUrl: 'https://developers.google.com/my-business/content/basic-setup',
+  }),
+  linkedin: oauth({
+    id: 'linkedin',
+    name: 'LinkedIn',
+    env: ['LINKEDIN_CLIENT_ID', 'LINKEDIN_CLIENT_SECRET', 'LINKEDIN_REDIRECT_URI'],
+    clientIdEnv: 'LINKEDIN_CLIENT_ID',
+    clientSecretEnv: 'LINKEDIN_CLIENT_SECRET',
+    redirectEnv: 'LINKEDIN_REDIRECT_URI',
+    authorizeUrl: 'https://www.linkedin.com/oauth/v2/authorization',
+    tokenUrl: 'https://www.linkedin.com/oauth/v2/accessToken',
+    scope: 'openid profile email',
+    capabilities: ['profile.read', 'lead_notifications.receive'],
+    actions: ['get_profile'],
+    webhook: true,
+    approval: 'LinkedIn does not provide general DM access; Lead Sync requires approved partner access.',
+    docsUrl: 'https://learn.microsoft.com/linkedin/shared/authentication/authorization-code-flow',
+  }),
+  sms: {
+    id: 'sms',
+    name: 'Twilio SMS',
+    authType: 'api_key',
+    env: ['TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_PHONE_NUMBER'],
+    capabilities: ['sms.send', 'sms.receive', 'delivery.receive'],
+    actions: ['send_sms'],
+    webhook: true,
+    docsUrl: 'https://www.twilio.com/docs/messaging/api/message-resource',
+  },
+  whatsapp: {
+    id: 'whatsapp',
+    name: 'Twilio WhatsApp',
+    authType: 'api_key',
+    env: ['TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_WHATSAPP_NUMBER'],
+    capabilities: ['whatsapp.send', 'whatsapp.receive', 'delivery.receive'],
+    actions: ['send_whatsapp'],
+    webhook: true,
+    approval: 'A WhatsApp Business sender and approved templates are required for business-initiated messages.',
+    docsUrl: 'https://www.twilio.com/docs/whatsapp',
+  },
+  dialer: {
+    id: 'dialer',
+    name: 'Twilio Voice',
+    authType: 'api_key',
+    env: ['TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_PHONE_NUMBER', 'TWILIO_VOICE_WEBHOOK_URL'],
+    capabilities: ['calls.place', 'calls.status'],
+    actions: ['place_call'],
+    webhook: true,
+    docsUrl: 'https://www.twilio.com/docs/voice/api/call-resource',
+  },
+  docusign: oauth({
+    id: 'docusign',
+    name: 'DocuSign',
+    env: ['DOCUSIGN_CLIENT_ID', 'DOCUSIGN_CLIENT_SECRET', 'DOCUSIGN_REDIRECT_URI', 'DOCUSIGN_ACCOUNT_ID'],
+    clientIdEnv: 'DOCUSIGN_CLIENT_ID',
+    clientSecretEnv: 'DOCUSIGN_CLIENT_SECRET',
+    redirectEnv: 'DOCUSIGN_REDIRECT_URI',
+    authorizeUrl: 'https://account-d.docusign.com/oauth/auth',
+    tokenUrl: 'https://account-d.docusign.com/oauth/token',
+    tokenAuth: 'basic',
+    scope: 'signature extended',
+    capabilities: ['envelopes.send', 'envelopes.status'],
+    actions: ['create_envelope', 'get_envelope'],
+    webhook: true,
+    approval: 'Use the demo account endpoints until DocuSign production go-live review is complete.',
+    docsUrl: 'https://developers.docusign.com/platform/auth/authcode/',
+  }),
+  dropbox: oauth({
+    id: 'dropbox',
+    name: 'Dropbox',
+    env: ['DROPBOX_CLIENT_ID', 'DROPBOX_CLIENT_SECRET', 'DROPBOX_REDIRECT_URI'],
+    clientIdEnv: 'DROPBOX_CLIENT_ID',
+    clientSecretEnv: 'DROPBOX_CLIENT_SECRET',
+    redirectEnv: 'DROPBOX_REDIRECT_URI',
+    authorizeUrl: 'https://www.dropbox.com/oauth2/authorize',
+    tokenUrl: 'https://api.dropboxapi.com/oauth2/token',
+    authorizeParams: { token_access_type: 'offline' },
+    capabilities: ['files.read', 'files.write'],
+    actions: ['list_folder', 'upload_file'],
+    webhook: true,
+    docsUrl: 'https://developers.dropbox.com/oauth-guide',
+  }),
+  zapier: {
+    id: 'zapier',
+    name: 'Zapier Webhooks',
+    authType: 'api_key',
+    env: ['ZAPIER_WEBHOOK_URL'],
+    optionalEnv: ['ZAPIER_WEBHOOK_SECRET'],
+    capabilities: ['events.send', 'events.receive'],
+    actions: ['trigger'],
+    webhook: true,
+    docsUrl: 'https://zapier.com/apps/webhook/integrations',
+  },
+  quickbooks: oauth({
+    id: 'quickbooks',
+    name: 'QuickBooks Online',
+    env: ['QUICKBOOKS_CLIENT_ID', 'QUICKBOOKS_CLIENT_SECRET', 'QUICKBOOKS_REDIRECT_URI'],
+    clientIdEnv: 'QUICKBOOKS_CLIENT_ID',
+    clientSecretEnv: 'QUICKBOOKS_CLIENT_SECRET',
+    redirectEnv: 'QUICKBOOKS_REDIRECT_URI',
+    authorizeUrl: 'https://appcenter.intuit.com/connect/oauth2',
+    tokenUrl: 'https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer',
+    tokenAuth: 'basic',
+    scope: 'com.intuit.quickbooks.accounting openid profile email',
+    capabilities: ['accounting.read', 'customers.write', 'invoices.write'],
+    actions: ['query', 'create_customer'],
+    docsUrl: 'https://developer.intuit.com/app/developer/qbo/docs/develop/authentication-and-authorization',
+  }),
+  mailchimp: oauth({
+    id: 'mailchimp',
+    name: 'Mailchimp',
+    env: ['MAILCHIMP_CLIENT_ID', 'MAILCHIMP_CLIENT_SECRET', 'MAILCHIMP_REDIRECT_URI'],
+    clientIdEnv: 'MAILCHIMP_CLIENT_ID',
+    clientSecretEnv: 'MAILCHIMP_CLIENT_SECRET',
+    redirectEnv: 'MAILCHIMP_REDIRECT_URI',
+    authorizeUrl: 'https://login.mailchimp.com/oauth2/authorize',
+    tokenUrl: 'https://login.mailchimp.com/oauth2/token',
+    capabilities: ['audiences.read', 'contacts.write', 'campaigns.read'],
+    actions: ['list_audiences', 'upsert_contact'],
+    webhook: true,
+    docsUrl: 'https://mailchimp.com/developer/marketing/guides/access-user-data-oauth-2/',
+  }),
+}
+
+export const connectorIds = () => Object.keys(CONNECTORS)
+
+export function connector(id) {
+  return CONNECTORS[id] || null
+}
+
+export function missingEnvironment(definition) {
+  return (definition?.env || []).filter((name) => !process.env[name])
+}
+
+export function appConfigured(definition) {
+  return !!definition && configured(definition.env || [])
+}
+
+export function publicConnector(definition, { connected = false, tokenSource = null } = {}) {
+  const missing = missingEnvironment(definition)
+  return {
+    id: definition.id,
+    name: definition.name,
+    authType: definition.authType,
+    appConfigured: missing.length === 0,
+    connected,
+    tokenSource,
+    missing,
+    optionalEnv: definition.optionalEnv || [],
+    capabilities: definition.capabilities || [],
+    actions: definition.actions || [],
+    webhook: !!definition.webhook,
+    approval: definition.approval || null,
+    docsUrl: definition.docsUrl,
+    connectUrl:
+      definition.native
+        ? `/api/${definition.id}/auth`
+        : definition.authType === 'oauth2'
+          ? `/api/integrations/auth?provider=${definition.id}`
+          : null,
+    callbackUrl:
+      definition.authType === 'oauth2'
+        ? definition.native
+          ? process.env[definition.id === 'outlook' ? 'OUTLOOK_REDIRECT_URI' : 'GOOGLE_REDIRECT_URI'] || null
+          : process.env[definition.redirectEnv] || null
+        : null,
+    webhookUrl: definition.webhook ? `/api/integrations/webhook?provider=${definition.id}` : null,
+  }
+}

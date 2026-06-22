@@ -233,32 +233,41 @@ export function FilterChip({ active, onClick, children }) {
 }
 
 /* ---------- buttons ---------- */
-export function Btn({ children, onClick, variant = 'primary', className, type = 'button', disabled, sm }) {
-  const styles = {
-    primary:
-      'border border-navy-950/90 bg-navy-900 text-white shadow-[0_1px_2px_rgba(16,24,40,0.18),inset_0_1px_0_rgba(255,255,255,0.08)] hover:bg-navy-800 focus-visible:ring-navy-500/50',
-    soft: 'border border-navy-100 bg-navy-50 text-navy-800 hover:bg-navy-100 focus-visible:ring-navy-500/40 dark:border-white/10 dark:bg-white/10 dark:text-navy-100 dark:hover:bg-white/15',
-    sage: 'border border-sage-700/90 bg-sage-600 text-white shadow-[0_1px_2px_rgba(16,24,40,0.18),inset_0_1px_0_rgba(255,255,255,0.1)] hover:bg-sage-700 focus-visible:ring-sage-500/50',
-    ghost: 'border border-transparent text-slate-600 hover:bg-slate-100 focus-visible:ring-navy-500/40 dark:text-slate-300 dark:hover:bg-white/10',
-    outline:
-      'border border-slate-300/80 bg-white text-slate-700 shadow-[0_1px_1px_rgba(16,24,40,0.04)] hover:border-slate-400/80 hover:bg-slate-50 hover:text-navy-900 focus-visible:ring-navy-500/40 dark:border-white/15 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10 dark:hover:text-white',
-  }
+const BTN_STYLES = {
+  primary:
+    'border border-navy-950/90 bg-navy-900 text-white shadow-[0_1px_2px_rgba(16,24,40,0.18),inset_0_1px_0_rgba(255,255,255,0.08)] hover:bg-navy-800 focus-visible:ring-navy-500/50',
+  soft: 'border border-navy-100 bg-navy-50 text-navy-800 hover:bg-navy-100 focus-visible:ring-navy-500/40 dark:border-white/10 dark:bg-white/10 dark:text-navy-100 dark:hover:bg-white/15',
+  sage: 'border border-sage-700/90 bg-sage-600 text-white shadow-[0_1px_2px_rgba(16,24,40,0.18),inset_0_1px_0_rgba(255,255,255,0.1)] hover:bg-sage-700 focus-visible:ring-sage-500/50',
+  ghost: 'border border-transparent text-slate-600 hover:bg-slate-100 focus-visible:ring-navy-500/40 dark:text-slate-300 dark:hover:bg-white/10',
+  outline:
+    'border border-slate-300/80 bg-white text-slate-700 shadow-[0_1px_1px_rgba(16,24,40,0.04)] hover:border-slate-400/80 hover:bg-slate-50 hover:text-navy-900 focus-visible:ring-navy-500/40 dark:border-white/15 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10 dark:hover:text-white',
+}
+
+const buttonCls = (variant, sm, className) =>
+  cx(
+    'inline-flex items-center justify-center gap-1.5 rounded-lg font-medium transition-all duration-150 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 disabled:pointer-events-none disabled:opacity-50',
+    sm ? 'h-7 px-2.5 text-xs' : 'h-9 px-3.5 text-[13px]',
+    (variant === 'primary' || variant === 'sage') && 'glare',
+    BTN_STYLES[variant],
+    className,
+  )
+
+export function Btn({ children, onClick, variant = 'primary', className, type = 'button', disabled, sm, ...props }) {
   return (
     <button
       type={type}
       disabled={disabled}
       onClick={onClick}
-      className={cx(
-        'inline-flex items-center justify-center gap-1.5 rounded-lg font-medium transition-all duration-150 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 disabled:pointer-events-none disabled:opacity-50',
-        sm ? 'h-7 px-2.5 text-xs' : 'h-9 px-3.5 text-[13px]',
-        (variant === 'primary' || variant === 'sage') && 'glare',
-        styles[variant],
-        className,
-      )}
+      className={buttonCls(variant, sm, className)}
+      {...props}
     >
       {children}
     </button>
   )
+}
+
+export function LinkBtn({ children, href, target, rel, variant = 'primary', className, sm, ...props }) {
+  return <a href={href} target={target} rel={rel} className={buttonCls(variant, sm, className)} {...props}>{children}</a>
 }
 
 /* ---------- modal ---------- */
@@ -269,6 +278,9 @@ export function Modal({ open, onClose, title, sub, children, wide }) {
       <div className="animate-fadein fixed inset-0 bg-navy-950/50" onClick={onClose} />
       <div className="relative flex min-h-full items-start justify-center p-4 sm:p-6">
         <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={title}
           className={cx(
             'animate-modalin relative mt-[6vh] w-full rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_24px_60px_-12px_rgba(16,24,40,0.35)] dark:border-white/10 dark:bg-navy-900',
             wide ? 'max-w-2xl' : 'max-w-lg',
@@ -281,6 +293,7 @@ export function Modal({ open, onClose, title, sub, children, wide }) {
             </div>
             <button
               onClick={onClose}
+              aria-label={`Close ${title}`}
               className="rounded-md p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
             >
               <X className="h-4 w-4" />

@@ -26,7 +26,7 @@ function TypingBubble() {
 }
 
 export default function Inbox() {
-  const { borrowers, messages, connections, sendMessage, markRead, openLoan, seat, currentOfficer, emailReady, mailBackend, go } = useApp()
+  const { borrowers, messages, connections, sendMessage, markRead, openLoan, seat, currentOfficer, mailBackend, go } = useApp()
   const [selectedId, setSelectedId] = useState(null)
   const [mobileThread, setMobileThread] = useState(false)
   const [draft, setDraft] = useState('')
@@ -72,7 +72,7 @@ export default function Inbox() {
     markRead(id)
   }
 
-  const realEmail = channel === 'email' && (emailReady || !!mailBackend)
+  const realEmail = channel === 'email' && !!mailBackend
   const mailLabel = mailBackend === 'outlook' ? 'your Outlook' : mailBackend === 'gmail' ? 'your Gmail' : 'your email'
 
   const send = () => {
@@ -86,7 +86,7 @@ export default function Inbox() {
     }
   }
 
-  const prov = active ? channelProvider(channel, connections) : null
+  const prov = active ? channelProvider(channel, connections, mailBackend) : null
 
   return (
     <div>

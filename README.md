@@ -6,8 +6,9 @@ documents, tasks, follow-ups, agent partners, and borrower communication — in 
 It runs two ways from the same codebase:
 
 - **Static demo** (GitHub Pages) — fully self-contained, fictional sample data, no backend.
-- **Live deployment** (Vercel) — adds a real two-way email backend that reads and sends from
-  a connected Outlook/Microsoft 365 or Gmail mailbox. See [`BACKEND-SETUP.md`](BACKEND-SETUP.md).
+- **Local/Vercel runtime** — serves a complete connector API for every integration card,
+  including OAuth, API-key actions, signed webhooks, and honest configuration status. See
+  [`BACKEND-SETUP.md`](BACKEND-SETUP.md).
 
 > **Demo prototype. Sample data is fictional. Not intended for real borrower data or
 > compliance use** until the production hardening pass.
@@ -46,7 +47,7 @@ reloads; Settings → *Reset demo data* clears it.
 - **Borrower Portal** — friendly progress tracker, document upload prompts, officer card.
 - **Apply Intake** — a public apply link that captures new leads straight into the pipeline.
 
-**System** — Integrations (connect tools), Settings (company profile, team, email setup,
+**System** — Integrations (16 server adapters with configuration and connection status), Settings (company profile, team,
 themes, notification prefs), Profile, and a ⌘K command palette.
 
 ## Stack
@@ -54,9 +55,9 @@ themes, notification prefs), Profile, and a ⌘K command palette.
 - React 19 + Vite, Tailwind CSS v4 (navy / blue / teal / sage, Inter), lucide-react.
 - Selectable themes + dark mode; confetti on closings.
 - Client mock data in `src/data.js`; state persisted to localStorage.
-- **Email:** EmailJS (client-side) or Vercel serverless functions in `api/` (Microsoft
-  Graph / Gmail API) for real two-way mail. The frontend probes `/api/health` and stays in
-  demo mode when no backend is present.
+- **Integrations:** serverless functions in `api/` provide Microsoft/Gmail mail, OAuth
+  connectors, Twilio communication actions, provider actions, signed webhooks, and a common
+  event-delivery boundary. Vite runs the same handlers locally.
 
 ## Deploy
 

@@ -1,5 +1,6 @@
 import { getAccessToken, graph } from '../_mslib.js'
 import { cors } from '../_lib.js'
+import { requireIntegrationAccess } from '../_integration-access.js'
 
 /* Send real mail through the authorized Outlook / Microsoft 365 account.
    Body: { to, subject, body, replyToId? }
@@ -8,6 +9,7 @@ import { cors } from '../_lib.js'
                   conversationId, so the UI must pass the original message's id.
    - no replyToId -> brand-new message via sendMail. */
 export default async function handler(req, res) {
+  if (!requireIntegrationAccess(req, res)) return
   cors(res)
   if (req.method === 'OPTIONS') {
     res.status(200).end()
@@ -23,7 +25,7 @@ export default async function handler(req, res) {
       res.status(400).json({ error: 'body is required' })
       return
     }
-    const token = await getAccessToken()
+    const token = await getAccessToken(req, res)
 
     if (replyToId) {
       // in-thread reply: pass only `comment` (never also message.body -> 400)

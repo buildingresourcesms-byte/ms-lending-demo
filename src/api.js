@@ -5,22 +5,33 @@
    On Vercel — once a mailbox is connected — it returns 'outlook' or 'gmail'
    and the Inbox reads & sends real mail through that provider's functions. */
 
-let _provider // undefined = not yet probed
+let _status // undefined = not yet probed
+let _integrationStatus
 
-export async function backendProvider() {
-  if (_provider !== undefined) return _provider
+const EMPTY_STATUS = {
+  available: false,
+  provider: null,
+  providers: {
+    outlook: { appConfigured: false, connected: false, tokenSource: null, missing: [], capabilities: ['mail', 'calendar'] },
+    gmail: { appConfigured: false, connected: false, tokenSource: null, missing: [], capabilities: ['mail'] },
+  },
+}
+
+export async function backendStatus({ refresh = false } = {}) {
+  if (!refresh && _status !== undefined) return _status
   try {
     const r = await fetch('/api/health', { cache: 'no-store' })
-    if (!r.ok) {
-      _provider = null
-      return _provider
-    }
+    if (!r.ok) throw new Error('Backend status unavailable')
     const j = await r.json()
-    _provider = j.provider || null
+    _status = { ...EMPTY_STATUS, ...j, available: true, providers: { ...EMPTY_STATUS.providers, ...(j.providers || {}) } }
   } catch {
-    _provider = null
+    _status = EMPTY_STATUS
   }
-  return _provider
+  return _status
+}
+
+export async function backendProvider(refresh = false) {
+  return (await backendStatus({ refresh })).provider || null
 }
 
 export async function backendReady() {
@@ -31,13 +42,71 @@ function base(p) {
   return p === 'outlook' ? '/api/outlook' : '/api/gmail'
 }
 
+function friendlyError(message, fallback) {
+  const text = String(message || '')
+  if (/invalid_grant|token refresh|expired|revoked/i.test(text)) {
+    return 'Your mailbox connection expired. Reconnect it from Integrations, then try again.'
+  }
+  if (/insufficient|forbidden|403|permission/i.test(text)) {
+    return 'This mailbox needs permission for that action. Reconnect it and approve the requested access.'
+  }
+  if (/credentials not configured|no mailbox|no calendar/i.test(text)) {
+    return 'No live account is connected. Open Integrations to finish setup.'
+  }
+  return fallback
+}
+
+export async function disconnectBackend(provider) {
+  const r = await fetch(`/api/${provider}/disconnect`, { method: 'POST' })
+  const j = await r.json().catch(() => ({}))
+  if (!r.ok) throw new Error(j.error || 'Could not disconnect this account')
+  _status = undefined
+  return j
+}
+
+export async function integrationBackendStatus({ refresh = false } = {}) {
+  if (!refresh && _integrationStatus) return _integrationStatus
+  try {
+    const response = await fetch('/api/integrations/status', { cache: 'no-store' })
+    if (!response.ok) throw new Error('Integration backend status unavailable')
+    _integrationStatus = { available: true, ...(await response.json()) }
+  } catch {
+    _integrationStatus = { available: false, runtime: 'static', connectors: {} }
+  }
+  return _integrationStatus
+}
+
+export async function disconnectIntegrationBackend(provider) {
+  const definition = (await integrationBackendStatus()).connectors?.[provider]
+  const url = definition?.connectUrl?.startsWith(`/api/${provider}/`)
+    ? `/api/${provider}/disconnect`
+    : `/api/integrations/disconnect?provider=${encodeURIComponent(provider)}`
+  const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ provider }) })
+  const body = await response.json().catch(() => ({}))
+  if (!response.ok) throw new Error(body.error || 'Could not disconnect integration')
+  _integrationStatus = undefined
+  _status = undefined
+  return body
+}
+
+export async function runIntegrationAction(provider, action, payload = {}) {
+  const response = await fetch('/api/integrations/action', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ provider, action, payload }),
+  })
+  const body = await response.json().catch(() => ({}))
+  if (!response.ok) throw new Error(body.error || `${provider} action failed`)
+  return body.data
+}
+
 export async function fetchInbox(query) {
   const p = await backendProvider()
   if (!p) throw new Error('No mailbox connected')
   const url = base(p) + '/messages' + (query ? '?q=' + encodeURIComponent(query) : '')
   const r = await fetch(url, { cache: 'no-store' })
   const j = await r.json().catch(() => ({}))
-  if (!r.ok) throw new Error(j.error || 'Could not load mail')
+  if (!r.ok) throw new Error(friendlyError(j.error, 'We could not load mail right now. Try again in a moment.'))
   return j.messages || []
 }
 
@@ -52,7 +121,7 @@ export async function sendViaBackend({ to, subject, body, threadId, replyToId })
     body: JSON.stringify({ to, subject, body, threadId, replyToId }),
   })
   const j = await r.json().catch(() => ({}))
-  if (!r.ok) throw new Error(j.error || 'Send failed')
+  if (!r.ok) throw new Error(friendlyError(j.error, 'Your message was not sent. Check the connection and try again.'))
   return j
 }
 
@@ -64,7 +133,7 @@ export async function fetchCalendar({ days = 30, max = 50 } = {}) {
   if (p !== 'outlook') return []
   const r = await fetch('/api/outlook/calendar?days=' + days + '&max=' + max, { cache: 'no-store' })
   const j = await r.json().catch(() => ({}))
-  if (!r.ok) throw new Error(j.error || 'Could not load calendar')
+  if (!r.ok) throw new Error(friendlyError(j.error, 'We could not load the connected calendar right now.'))
   return j.events || []
 }
 
@@ -79,6 +148,6 @@ export async function createCalendarEvent(evt) {
     body: JSON.stringify(evt),
   })
   const j = await r.json().catch(() => ({}))
-  if (!r.ok) throw new Error(j.error || 'Could not create event')
+  if (!r.ok) throw new Error(friendlyError(j.error, 'The calendar event was not created. Check the connection and try again.'))
   return j
 }
