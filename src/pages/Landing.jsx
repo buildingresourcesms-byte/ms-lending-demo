@@ -1,4 +1,4 @@
-import { ArrowRight, Users } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 import { useApp } from '../store.jsx'
 import { OFFICERS, DISCLAIMER, timeOfDay, SKY } from '../data.js'
 import { BrandMark, Avatar, PoweredBySolvyr, cx } from '../ui.jsx'
@@ -20,27 +20,9 @@ function SignInRow({ o, onClick }) {
   )
 }
 
-function SignInChip({ o, onClick }) {
-  return (
-    <button
-      onClick={onClick}
-      className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-2 text-left transition-colors hover:bg-white/[0.07] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage-400/50"
-    >
-      <span className={cx('grid h-7 w-7 shrink-0 place-items-center rounded-full text-[10px] font-semibold text-white', o.color)}>
-        {o.initials}
-      </span>
-      <span className="min-w-0">
-        <span className="block truncate text-xs font-medium text-white">{o.name.split(' ')[0]}</span>
-        <span className="block truncate text-[10px] text-navy-400">{o.role.split(' ')[0]}</span>
-      </span>
-    </button>
-  )
-}
-
 export default function Landing() {
   const { signIn } = useApp()
-  const featured = ['julene', 'michelle'].map((id) => OFFICERS.find((o) => o.id === id))
-  const others = OFFICERS.filter((o) => !['julene', 'michelle'].includes(o.id))
+  const julene = OFFICERS.find((o) => o.id === 'julene') ?? OFFICERS[0]
   const accent = SKY[timeOfDay()].accent
 
   return (
@@ -67,26 +49,8 @@ export default function Landing() {
 
         {/* sign-in card */}
         <Reveal delay={120} className="mt-7 rounded-2xl border border-white/10 bg-white/5 p-4 shadow-[0_24px_60px_-12px_rgba(0,0,0,0.5)]">
-          <p className="px-1 pb-2 text-[11px] font-semibold uppercase tracking-wider text-navy-400">Sign in as</p>
-          <div className="space-y-2">
-            {featured.map((o) => (
-              <SignInRow key={o.id} o={o} onClick={() => signIn(o.id)} />
-            ))}
-          </div>
-
-          <p className="px-1 pb-2 pt-4 text-[11px] font-semibold uppercase tracking-wider text-navy-400">Team</p>
-          <div className="grid grid-cols-3 gap-2">
-            {others.map((o) => (
-              <SignInChip key={o.id} o={o} onClick={() => signIn(o.id)} />
-            ))}
-          </div>
-
-          <button
-            onClick={() => signIn('team')}
-            className="glare mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-[13px] font-medium text-navy-200 transition-colors hover:bg-white/5 hover:text-white"
-          >
-            <Users className="h-3.5 w-3.5" /> View the whole team
-          </button>
+          <p className="px-1 pb-2 text-[11px] font-semibold uppercase tracking-wider text-navy-400">Sign in</p>
+          <SignInRow o={julene} onClick={() => signIn(julene.id)} />
         </Reveal>
 
         <Reveal delay={220}>

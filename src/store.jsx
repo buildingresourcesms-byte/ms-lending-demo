@@ -30,7 +30,7 @@ export const useApp = () => useContext(Ctx)
    Bump PERSIST_VERSION whenever the seed data shape changes so
    returning users get the fresh demo instead of a stale cache. */
 const PERSIST_KEY = 'msl-state'
-const PERSIST_VERSION = 'v1'
+const PERSIST_VERSION = 'v2'
 const loadSaved = () => {
   try {
     const raw = JSON.parse(localStorage.getItem(PERSIST_KEY))
@@ -436,7 +436,7 @@ export function AppProvider({ children }) {
     (rows, { officerId } = {}) => {
       const valid = (rows || []).filter((r) => (r.name || '').trim())
       if (!valid.length) return 0
-      const owner = officerById(officerId)?.id || (seat === 'team' ? 'michelle' : seat)
+      const owner = officerById(officerId)?.id || (seat === 'team' ? 'julene' : seat)
       const created = valid.map((form) => {
         const id = 'b' + ++idSeq.current
         const purpose = ['Purchase', 'Refinance', 'Cash-Out Refinance'].includes(form.purpose) ? form.purpose : 'Purchase'

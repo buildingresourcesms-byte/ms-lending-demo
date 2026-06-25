@@ -101,7 +101,7 @@ export default function Tasks() {
   const [form, setForm] = useState({
     title: '',
     borrowerId: borrowers[0]?.id,
-    officerId: seat === 'team' ? 'michelle' : seat,
+    officerId: seat === 'team' ? 'julene' : seat,
     due: d(1),
     priority: 'Medium',
   })

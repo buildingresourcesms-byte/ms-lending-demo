@@ -422,7 +422,7 @@ export default function Calendar() {
                     </div>
                     {e.borrowerId && (
                       <Avatar
-                        officer={officerById(borrowers.find((b) => b.id === e.borrowerId)?.officerId ?? 'michelle')}
+                        officer={officerById(borrowers.find((b) => b.id === e.borrowerId)?.officerId ?? 'julene')}
                         size="h-6 w-6 text-[9px]"
                       />
                     )}

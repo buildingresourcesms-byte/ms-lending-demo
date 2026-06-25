@@ -145,7 +145,7 @@ function WebsiteApplyCard() {
     toast('Apply link copied', '📋')
     setTimeout(() => setCopied(null), 1600)
   }
-  const linkOfficers = OFFICERS.filter((o) => ['michelle', 'julene', 'lauren'].includes(o.id))
+  const linkOfficers = OFFICERS
 
   return (
     <Card

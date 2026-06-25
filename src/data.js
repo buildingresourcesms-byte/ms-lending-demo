@@ -262,36 +262,6 @@ export const portalStageIndex = (status) =>
 /* ---------- team ---------- */
 export const OFFICERS = [
   {
-    id: 'michelle',
-    name: 'Michelle Dugan',
-    role: 'Owner · Mortgage Broker',
-    nmls: 'NMLS #102016',
-    phone: '(601) 651-3959',
-    email: 'michelle@mslending.net',
-    color: 'bg-navy-700',
-    initials: 'MD',
-  },
-  {
-    id: 'lauren',
-    name: 'Lauren Avery',
-    role: 'Senior Loan Officer',
-    nmls: 'Sample teammate',
-    phone: '(601) 555-0142',
-    email: 'lauren@mslending.net',
-    color: 'bg-teal-600',
-    initials: 'LA',
-  },
-  {
-    id: 'dana',
-    name: 'Dana Brooks',
-    role: 'Loan Processor',
-    nmls: 'Sample teammate',
-    phone: '(601) 555-0173',
-    email: 'dana@mslending.net',
-    color: 'bg-sage-600',
-    initials: 'DB',
-  },
-  {
     id: 'julene',
     name: 'Julene Stewart',
     role: 'Sr. Loan Officer',
@@ -300,16 +270,6 @@ export const OFFICERS = [
     email: 'julene@mslending.net',
     color: 'bg-violet-600',
     initials: 'JS',
-  },
-  {
-    id: 'katie',
-    name: 'Katie Monroe',
-    role: 'Loan Officer Assistant',
-    nmls: 'Sample teammate',
-    phone: '(601) 555-0186',
-    email: 'katie@mslending.net',
-    color: 'bg-blue-500',
-    initials: 'KM',
   },
 ]
 
@@ -439,7 +399,7 @@ export const agentApplyLink = (officer, agent) => `${APPLY_BASE}/${officer.id}/$
 
 export const LOAN_TYPES = ['Conventional', 'FHA', 'VA', 'USDA', 'Jumbo']
 
-/* MS Lending's real secure online application (Michelle's 1003 portal).
+/* MS Lending's real secure online application (the 1003 portal).
    The website "Apply Now" buttons point here today; the goal is to route
    them through this workspace later. */
 export const APPLY_URL = 'https://mslending.my1003app.com/102016'
@@ -457,12 +417,6 @@ export const applyLinkFor = (officer) => `${APPLY_BASE}/${officer.id}`
 
 /* officer profiles (Julene's details are real, from mslending.net) */
 export const OFFICER_PROFILES = {
-  michelle: {
-    since: 'Founded MS Lending in 2018',
-    specialties: ['First-time buyers', 'Self-employed borrowers', 'VA & FHA loans'],
-    bio: 'Owner and mortgage broker. Michelle started MS Lending, LLC to make getting a mortgage simpler, faster, and more personal for Mississippi families.',
-    community: ['NMLS #102016', 'Madison, MS'],
-  },
   julene: {
     since: '28+ years in real estate (since 1995)',
     specialties: ['Home purchase financing', 'Refinancing', 'Personalized lending advice'],
@@ -476,24 +430,6 @@ export const OFFICER_PROFILES = {
       'Founding Member, Mortgage Women of Mississippi',
       'Member, MSCHIP',
     ],
-  },
-  lauren: {
-    since: 'Loan officer since 2015',
-    specialties: ['Conventional loans', 'First-time buyers'],
-    bio: 'Sample teammate for this demo. Lauren works leads from intro call through closing.',
-    community: [],
-  },
-  dana: {
-    since: 'Processing since 2017',
-    specialties: ['Document review', 'Underwriting support'],
-    bio: 'Sample teammate for this demo. Dana keeps files moving and conditions cleared.',
-    community: [],
-  },
-  katie: {
-    since: 'Supporting the team since 2021',
-    specialties: ['Borrower support', 'Scheduling & coordination'],
-    bio: 'Sample teammate for this demo. Katie helps borrowers and keeps the day organized.',
-    community: [],
   },
 }
 
@@ -535,7 +471,7 @@ export const SEED_BORROWERS = [
     nextFollowUp: d(0),
     docs: docsFor('Purchase'),
     notes: [
-      { id: 'n1', author: 'Lauren Avery', date: d(-1), text: 'Zillow lead. Pre-qualifying around $215k, wants the Brandon school district. Best time to call is after 3pm.' },
+      { id: 'n1', author: 'Julene Stewart', date: d(-1), text: 'Zillow lead. Pre-qualifying around $215k, wants the Brandon school district. Best time to call is after 3pm.' },
     ],
     timeline: [
       { date: d(-1), type: 'created', text: 'Lead created from Zillow' },
@@ -561,7 +497,7 @@ export const SEED_BORROWERS = [
     source: 'Realtor Referral',
     agentId: 'holly',
     status: 'Documents Needed',
-    officerId: 'michelle',
+    officerId: 'julene',
     createdAt: d(-12),
     stageEnteredAt: d(-6),
     lastContact: d(-4),
@@ -569,8 +505,8 @@ export const SEED_BORROWERS = [
     estClosing: d(34),
     docs: docsFor('Purchase', ['Approved', 'Requested', 'Needed', 'Uploaded', 'Requested', 'Approved', 'Approved', 'Needed', 'Needed']),
     notes: [
-      { id: 'n1', author: 'Michelle Dugan', date: d(-4), text: 'Alyssa is gathering May pay stubs. They close on their lease July 31 — keep this one moving.' },
-      { id: 'n2', author: 'Dana Brooks', date: d(-6), text: 'W-2s look good. Still waiting on bank statements from both.' },
+      { id: 'n1', author: 'Julene Stewart', date: d(-4), text: 'Alyssa is gathering May pay stubs. They close on their lease July 31 — keep this one moving.' },
+      { id: 'n2', author: 'Julene Stewart', date: d(-6), text: 'W-2s look good. Still waiting on bank statements from both.' },
     ],
     timeline: [
       { date: d(-12), type: 'created', text: 'Lead created — referred by Holly Sandifer (Realtor)' },
@@ -598,7 +534,7 @@ export const SEED_BORROWERS = [
     employer: 'VA Medical Center — Admin',
     source: 'Past Client',
     status: 'Underwriting',
-    officerId: 'michelle',
+    officerId: 'julene',
     createdAt: d(-31),
     stageEnteredAt: d(-13),
     lastContact: d(-7),
@@ -607,7 +543,7 @@ export const SEED_BORROWERS = [
     rateLockExpires: d(9),
     docs: docsFor('Refinance', ['Approved', 'Approved', 'Approved', 'Approved', 'Approved', 'Approved', 'Approved', 'Approved', 'Reviewed']),
     notes: [
-      { id: 'n1', author: 'Michelle Dugan', date: d(-7), text: 'Underwriter asked for an updated VOE — Dana is on it. Renee is using cash-out for her kitchen remodel.' },
+      { id: 'n1', author: 'Julene Stewart', date: d(-7), text: 'Underwriter asked for an updated VOE — handling it now. Renee is using cash-out for her kitchen remodel.' },
     ],
     timeline: [
       { date: d(-31), type: 'created', text: 'Returning client — closed her purchase with us in 2023' },
@@ -635,14 +571,14 @@ export const SEED_BORROWERS = [
     employer: 'Amazon Fulfillment — Team Lead',
     source: 'Facebook',
     status: 'Contacted',
-    officerId: 'lauren',
+    officerId: 'julene',
     createdAt: d(-4),
     stageEnteredAt: d(-3),
     lastContact: d(-3),
     nextFollowUp: d(1),
     docs: docsFor('Purchase'),
     notes: [
-      { id: 'n1', author: 'Lauren Avery', date: d(-3), text: 'First-time buyer, a little nervous about the process. Walked her through FHA basics — she felt much better. Sending app link tomorrow.' },
+      { id: 'n1', author: 'Julene Stewart', date: d(-3), text: 'First-time buyer, a little nervous about the process. Walked her through FHA basics — she felt much better. Sending app link tomorrow.' },
     ],
     timeline: [
       { date: d(-4), type: 'created', text: 'Lead created from Facebook ad' },
@@ -669,7 +605,7 @@ export const SEED_BORROWERS = [
     agentId: 'holly',
     status: 'Pre-Approved',
     preApprovalMax: 280000,
-    officerId: 'michelle',
+    officerId: 'julene',
     createdAt: d(-16),
     stageEnteredAt: d(-2),
     lastContact: d(-2),
@@ -677,7 +613,7 @@ export const SEED_BORROWERS = [
     estClosing: d(40),
     docs: docsFor('Purchase', ['Approved', 'Approved', 'Approved', 'Approved', 'Reviewed', 'Uploaded', 'Approved', 'Needed', 'Approved']),
     notes: [
-      { id: 'n1', author: 'Michelle Dugan', date: d(-2), text: 'Pre-approval letter sent at $280k. They’re making an offer on Lakeland Trace this weekend. 🤞' },
+      { id: 'n1', author: 'Julene Stewart', date: d(-2), text: 'Pre-approval letter sent at $280k. They’re making an offer on Lakeland Trace this weekend. 🤞' },
     ],
     timeline: [
       { date: d(-16), type: 'created', text: 'Lead created — referred by Holly Sandifer (Realtor)' },
@@ -705,7 +641,7 @@ export const SEED_BORROWERS = [
     source: 'Website',
     agentId: 'carl',
     status: 'In Review',
-    officerId: 'lauren',
+    officerId: 'julene',
     createdAt: d(-9),
     stageEnteredAt: d(-3),
     lastContact: d(-3),
@@ -713,7 +649,7 @@ export const SEED_BORROWERS = [
     estClosing: d(45),
     docs: docsFor('Purchase', ['Approved', 'Uploaded', 'Uploaded', 'Approved', 'Uploaded', 'Approved', 'Approved', 'Needed', 'Requested']),
     notes: [
-      { id: 'n1', author: 'Lauren Avery', date: d(-3), text: 'USDA eligibility confirmed for the Tinnin Rd property. Reviewing income docs today.' },
+      { id: 'n1', author: 'Julene Stewart', date: d(-3), text: 'USDA eligibility confirmed for the Tinnin Rd property. Reviewing income docs today.' },
     ],
     timeline: [
       { date: d(-9), type: 'created', text: 'Lead created from website application' },
@@ -739,14 +675,14 @@ export const SEED_BORROWERS = [
     employer: 'C Spire — Account Manager',
     source: 'Past Client',
     status: 'Application Started',
-    officerId: 'michelle',
+    officerId: 'julene',
     createdAt: d(-8),
     stageEnteredAt: d(-5),
     lastContact: d(-5),
     nextFollowUp: d(-1),
     docs: docsFor('Refinance', ['Uploaded', 'Needed', 'Needed', 'Needed', 'Needed', 'Uploaded', 'Approved', 'Needed', 'Needed']),
     notes: [
-      { id: 'n1', author: 'Michelle Dugan', date: d(-5), text: 'Wants to drop PMI and shave his rate. App is half-finished — nudge him to wrap it up.' },
+      { id: 'n1', author: 'Julene Stewart', date: d(-5), text: 'Wants to drop PMI and shave his rate. App is half-finished — nudge him to wrap it up.' },
     ],
     timeline: [
       { date: d(-8), type: 'created', text: 'Past client — called about refinancing' },
@@ -773,7 +709,7 @@ export const SEED_BORROWERS = [
     agentId: 'bree',
     status: 'Clear to Close',
     preApprovalMax: 215000,
-    officerId: 'michelle',
+    officerId: 'julene',
     createdAt: d(-38),
     stageEnteredAt: d(-2),
     lastContact: d(-1),
@@ -782,7 +718,7 @@ export const SEED_BORROWERS = [
     rateLockExpires: d(7),
     docs: docsFor('Purchase', ['Approved', 'Approved', 'Approved', 'Approved', 'Approved', 'Approved', 'Approved', 'Approved', 'Approved']),
     notes: [
-      { id: 'n1', author: 'Michelle Dugan', date: d(-1), text: `CTC! Closing set for ${fmtDateFull(d(5))} at 10am, Madison Title Co. Brittany is SO excited — first home.` },
+      { id: 'n1', author: 'Julene Stewart', date: d(-1), text: `CTC! Closing set for ${fmtDateFull(d(5))} at 10am, Madison Title Co. Brittany is SO excited — first home.` },
     ],
     timeline: [
       { date: d(-38), type: 'created', text: 'Lead created — realtor referral' },
@@ -822,7 +758,7 @@ export const SEED_BORROWERS = [
     rateLockExpires: d(4),
     docs: docsFor('Purchase', ['Approved', 'Approved', 'Approved', 'Approved', 'Approved', 'Approved', 'Approved', 'Uploaded', 'Approved']),
     notes: [
-      { id: 'n1', author: 'Lauren Avery', date: d(-2), text: 'COE verified. Appraisal came back at value — told Keisha, she was thrilled.' },
+      { id: 'n1', author: 'Julene Stewart', date: d(-2), text: 'COE verified. Appraisal came back at value — told Keisha, she was thrilled.' },
     ],
     timeline: [
       { date: d(-22), type: 'created', text: 'Lead created from website' },
@@ -858,7 +794,7 @@ export const SEED_BORROWERS = [
     estClosing: d(28),
     docs: docsFor('Purchase', ['Approved', 'Requested', 'Requested', 'Approved', 'Needed', 'Approved', 'Approved', 'Needed', 'Requested']),
     notes: [
-      { id: 'n1', author: 'Lauren Avery', date: d(-9), text: 'Sandra has been traveling for work. Still missing pay stubs, bank statements, tax returns. File is stalling — call this week!' },
+      { id: 'n1', author: 'Julene Stewart', date: d(-9), text: 'Sandra has been traveling for work. Still missing pay stubs, bank statements, tax returns. File is stalling — call this week!' },
     ],
     timeline: [
       { date: d(-24), type: 'created', text: 'Lead created from Zillow' },
@@ -884,13 +820,13 @@ export const SEED_BORROWERS = [
     employer: 'Self-employed — Salon Owner',
     source: 'Facebook',
     status: 'New Lead',
-    officerId: 'michelle',
+    officerId: 'julene',
     createdAt: d(-2),
     stageEnteredAt: d(-2),
     nextFollowUp: d(1),
     docs: docsFor('Refinance'),
     notes: [
-      { id: 'n1', author: 'Katie Monroe', date: d(-2), text: 'Messaged us on Facebook — wants cash out to expand her salon. Self-employed, so flag tax returns early.' },
+      { id: 'n1', author: 'Julene Stewart', date: d(-2), text: 'Messaged us on Facebook — wants cash out to expand her salon. Self-employed, so flag tax returns early.' },
     ],
     timeline: [
       { date: d(-2), type: 'created', text: 'Lead created from Facebook message' },
@@ -923,7 +859,7 @@ export const SEED_BORROWERS = [
     estClosing: d(37),
     docs: docsFor('Purchase', ['Approved', 'Approved', 'Uploaded', 'Uploaded', 'Uploaded', 'Approved', 'Approved', 'Requested', 'Needed']),
     notes: [
-      { id: 'n1', author: 'Michelle Dugan', date: d(-1), text: 'Jumbo file — two years of returns in. Reviewing practice income. Strong borrowers.' },
+      { id: 'n1', author: 'Julene Stewart', date: d(-1), text: 'Jumbo file — two years of returns in. Reviewing practice income. Strong borrowers.' },
     ],
     timeline: [
       { date: d(-11), type: 'created', text: 'Lead created — realtor referral' },
@@ -959,7 +895,7 @@ export const SEED_BORROWERS = [
     estClosing: d(-6),
     docs: docsFor('Purchase', ['Approved', 'Approved', 'Approved', 'Approved', 'Approved', 'Approved', 'Approved', 'Approved', 'Approved']),
     notes: [
-      { id: 'n1', author: 'Michelle Dugan', date: d(-6), text: 'Closed! Keys in hand. Katie is sending the thank-you gift this week.' },
+      { id: 'n1', author: 'Julene Stewart', date: d(-6), text: 'Closed! Keys in hand. Sending the thank-you gift this week.' },
     ],
     timeline: [
       { date: d(-52), type: 'created', text: 'Lead created — sister of a past client' },
@@ -986,14 +922,14 @@ export const SEED_BORROWERS = [
     employer: 'Nissan Canton — Technician',
     source: 'Zillow',
     status: 'Lost',
-    officerId: 'lauren',
+    officerId: 'julene',
     createdAt: d(-35),
     stageEnteredAt: d(-20),
     lastContact: d(-20),
     nextFollowUp: null,
     docs: docsFor('Purchase', ['Uploaded', 'Needed', 'Needed', 'Needed', 'Needed', 'Needed', 'Approved', 'Needed', 'Needed']),
     notes: [
-      { id: 'n1', author: 'Lauren Avery', date: d(-20), text: 'Decided to keep renting for now. Super nice guy — check back in 6 months, he wants to try again in the spring.' },
+      { id: 'n1', author: 'Julene Stewart', date: d(-20), text: 'Decided to keep renting for now. Super nice guy — check back in 6 months, he wants to try again in the spring.' },
     ],
     timeline: [
       { date: d(-35), type: 'created', text: 'Lead created from Zillow' },
@@ -1016,19 +952,19 @@ export const PRIORITY_STYLES = {
 
 export const SEED_TASKS = [
   { id: 't1', title: 'Call Carla Simmons — intro & pre-qual', borrowerId: 'b1', officerId: 'julene', due: d(0), priority: 'High', status: 'To Do' },
-  { id: 't2', title: 'Chase pay stubs & bank statements', borrowerId: 'b2', officerId: 'michelle', due: d(0), priority: 'High', status: 'In Progress' },
+  { id: 't2', title: 'Chase pay stubs & bank statements', borrowerId: 'b2', officerId: 'julene', due: d(0), priority: 'High', status: 'In Progress' },
   { id: 't3', title: 'Review uploaded bank statements', borrowerId: 'b10', officerId: 'julene', due: d(-1), priority: 'High', status: 'To Do' },
-  { id: 't4', title: 'Follow up with realtor — Ellis offer', borrowerId: 'b5', officerId: 'michelle', due: d(1), priority: 'Medium', status: 'To Do' },
-  { id: 't5', title: 'Send updated VOE to underwriter', borrowerId: 'b3', officerId: 'dana', due: d(-3), priority: 'High', status: 'Waiting' },
-  { id: 't6', title: 'Schedule closing — Madison Title Co.', borrowerId: 'b8', officerId: 'michelle', due: d(2), priority: 'High', status: 'To Do' },
-  { id: 't7', title: 'Send pre-approval letter', borrowerId: 'b6', officerId: 'lauren', due: d(0), priority: 'Medium', status: 'To Do' },
-  { id: 't8', title: 'Follow up — app half-finished', borrowerId: 'b7', officerId: 'michelle', due: d(-1), priority: 'Medium', status: 'To Do' },
-  { id: 't9', title: 'Review Lawson practice income docs', borrowerId: 'b12', officerId: 'dana', due: d(1), priority: 'Medium', status: 'In Progress' },
-  { id: 't10', title: 'Send document request', borrowerId: 'b11', officerId: 'katie', due: d(1), priority: 'Medium', status: 'To Do' },
-  { id: 't11', title: 'Order homeowners insurance binder', borrowerId: 'b9', officerId: 'katie', due: d(3), priority: 'Low', status: 'Waiting' },
-  { id: 't12', title: 'Send closing gift & thank-you card', borrowerId: 'b13', officerId: 'katie', due: d(-2), priority: 'Low', status: 'Complete' },
-  { id: 't13', title: 'Verify employment (VOE)', borrowerId: 'b3', officerId: 'dana', due: d(-6), priority: 'High', status: 'Complete' },
-  { id: 't14', title: 'Prep closing package', borrowerId: 'b8', officerId: 'dana', due: d(4), priority: 'Medium', status: 'To Do' },
+  { id: 't4', title: 'Follow up with realtor — Ellis offer', borrowerId: 'b5', officerId: 'julene', due: d(1), priority: 'Medium', status: 'To Do' },
+  { id: 't5', title: 'Send updated VOE to underwriter', borrowerId: 'b3', officerId: 'julene', due: d(-3), priority: 'High', status: 'Waiting' },
+  { id: 't6', title: 'Schedule closing — Madison Title Co.', borrowerId: 'b8', officerId: 'julene', due: d(2), priority: 'High', status: 'To Do' },
+  { id: 't7', title: 'Send pre-approval letter', borrowerId: 'b6', officerId: 'julene', due: d(0), priority: 'Medium', status: 'To Do' },
+  { id: 't8', title: 'Follow up — app half-finished', borrowerId: 'b7', officerId: 'julene', due: d(-1), priority: 'Medium', status: 'To Do' },
+  { id: 't9', title: 'Review Lawson practice income docs', borrowerId: 'b12', officerId: 'julene', due: d(1), priority: 'Medium', status: 'In Progress' },
+  { id: 't10', title: 'Send document request', borrowerId: 'b11', officerId: 'julene', due: d(1), priority: 'Medium', status: 'To Do' },
+  { id: 't11', title: 'Order homeowners insurance binder', borrowerId: 'b9', officerId: 'julene', due: d(3), priority: 'Low', status: 'Waiting' },
+  { id: 't12', title: 'Send closing gift & thank-you card', borrowerId: 'b13', officerId: 'julene', due: d(-2), priority: 'Low', status: 'Complete' },
+  { id: 't13', title: 'Verify employment (VOE)', borrowerId: 'b3', officerId: 'julene', due: d(-6), priority: 'High', status: 'Complete' },
+  { id: 't14', title: 'Prep closing package', borrowerId: 'b8', officerId: 'julene', due: d(4), priority: 'Medium', status: 'To Do' },
 ]
 
 /* leads per week — last 8 weeks (for the dashboard sparkline) */
@@ -1101,7 +1037,7 @@ export const INTEGRATIONS = [
     blurb: 'Sync borrower emails into each loan file and send right from the workspace.',
     perms: ['Read & send email on your behalf', 'Match messages to borrower files'],
     accountKind: 'email',
-    defaultAccount: 'michelle@mslending.net',
+    defaultAccount: 'julene@mslending.net',
   },
   {
     id: 'outlook',
@@ -1123,7 +1059,7 @@ export const INTEGRATIONS = [
     blurb: 'Put closings, follow-ups, and appointments on your calendar automatically.',
     perms: ['Create & update calendar events', 'Read your availability'],
     accountKind: 'email',
-    defaultAccount: 'michelle@mslending.net',
+    defaultAccount: 'julene@mslending.net',
   },
 
   /* ---- Social & Lead Sources ---- */
@@ -1158,7 +1094,7 @@ export const INTEGRATIONS = [
     blurb: 'Auto-import Zillow Premier Agent leads the moment they come in.',
     perms: ['Receive Premier Agent leads', 'Sync lead contact details'],
     accountKind: 'account',
-    defaultAccount: 'Premier Agent · Michelle D.',
+    defaultAccount: 'Premier Agent · Julene S.',
   },
   {
     id: 'gbp',
@@ -1180,7 +1116,7 @@ export const INTEGRATIONS = [
     blurb: 'Link staff profiles now and receive lead events after LinkedIn partner approval.',
     perms: ['Read the authorized profile', 'Receive approved Lead Sync events'],
     accountKind: 'handle',
-    defaultAccount: 'Michelle Dugan',
+    defaultAccount: 'Julene Stewart',
   },
 
   /* ---- Phone & Messaging ---- */
@@ -1228,7 +1164,7 @@ export const INTEGRATIONS = [
     blurb: 'Send disclosures and applications for legally-binding e-signature.',
     perms: ['Send documents for signature', 'Track signing status'],
     accountKind: 'email',
-    defaultAccount: 'michelle@mslending.net',
+    defaultAccount: 'julene@mslending.net',
   },
   {
     id: 'dropbox',
@@ -1252,7 +1188,7 @@ export const INTEGRATIONS = [
     blurb: 'Wire MS Lending to 6,000+ apps with no-code automations.',
     perms: ['Trigger workflows on new leads & status changes'],
     accountKind: 'email',
-    defaultAccount: 'michelle@mslending.net',
+    defaultAccount: 'julene@mslending.net',
   },
   {
     id: 'quickbooks',
@@ -1366,7 +1302,7 @@ export const VAULT_SUGGESTIONS = [
 /* a tiny bit of seed so the group chat and vault aren't empty on first look */
 export const SEED_PORTAL_CHAT = {
   b3: [
-    { id: 'pc1', author: 'Michelle Dugan', role: 'Loan Officer', text: 'Hi Renee! Dropping the whole team in here so everyone can follow along. The updated VOE is the last condition — almost there.', at: at(-6, '10:05') },
+    { id: 'pc1', author: 'Julene Stewart', role: 'Loan Officer', text: 'Hi Renee! Keeping everything in one place here so you can follow along. The updated VOE is the last condition — almost there.', at: at(-6, '10:05') },
     { id: 'pc2', author: 'Renee Walker', role: 'Borrower', text: 'Thank you! My HR said they sent it over this morning.', at: at(-6, '13:20') },
   ],
 }
@@ -1438,7 +1374,7 @@ export const SEED_TEMPLATES = [
 export const SOCIAL_ACCOUNTS = [
   { id: 'facebook', name: 'Facebook', handle: 'MS Lending, LLC', icon: 'megaphone', color: '#1877F2', followers: 2840, growth: 3.2 },
   { id: 'instagram', name: 'Instagram', handle: '@mslending', icon: 'camera', color: '#E4405F', followers: 1910, growth: 5.8 },
-  { id: 'linkedin', name: 'LinkedIn', handle: 'Michelle Dugan', icon: 'briefcase', color: '#0A66C2', followers: 1240, growth: 1.4 },
+  { id: 'linkedin', name: 'LinkedIn', handle: 'Julene Stewart', icon: 'briefcase', color: '#0A66C2', followers: 1240, growth: 1.4 },
 ]
 
 export const SOCIAL_POSTS = [

@@ -91,7 +91,7 @@ function NewLeadModal({ open, onClose }) {
     amount: '',
     city: 'Madison',
     source: 'Realtor Referral',
-    officerId: seat === 'team' ? 'michelle' : seat,
+    officerId: seat === 'team' ? 'julene' : seat,
   }
   const [form, setForm] = useState(blank)
   const set = (k) => (v) => setForm((f) => ({ ...f, [k]: v }))
@@ -234,45 +234,6 @@ function SeatSwitcher() {
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
           <div className="absolute bottom-full left-0 z-20 mb-2 w-full overflow-hidden rounded-xl border border-white/10 bg-navy-900 p-1 shadow-[0_16px_44px_-8px_rgba(0,0,0,0.6)]">
-            <p className="px-2.5 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-navy-500">
-              Viewing as
-            </p>
-            <button
-              onClick={() => pick('team')}
-              className={cx(
-                'flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-white/[0.06]',
-                seat === 'team' && 'bg-white/[0.04]',
-              )}
-            >
-              <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-white/10">
-                <Users className="h-3.5 w-3.5 text-navy-200" strokeWidth={2} />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-xs font-medium text-white">Whole team</span>
-                <span className="block truncate text-[10px] text-navy-400">Everyone’s pipeline</span>
-              </span>
-              {seat === 'team' && <Check className="h-4 w-4 shrink-0 text-sage-400" />}
-            </button>
-            {OFFICERS.map((o) => (
-              <button
-                key={o.id}
-                onClick={() => pick(o.id)}
-                className={cx(
-                  'flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-white/[0.06]',
-                  seat === o.id && 'bg-white/[0.04]',
-                )}
-              >
-                <span className={cx('grid h-7 w-7 shrink-0 place-items-center rounded-full text-[10px] font-semibold text-white', o.color)}>
-                  {o.initials}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-xs font-medium text-white">{o.name}</span>
-                  <span className="block truncate text-[10px] text-navy-400">{o.role}</span>
-                </span>
-                {seat === o.id && <Check className="h-4 w-4 shrink-0 text-sage-400" />}
-              </button>
-            ))}
-            <div className="my-1 border-t border-white/[0.08]" />
             <button
               onClick={() => {
                 go('profile', {})

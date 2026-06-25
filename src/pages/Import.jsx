@@ -76,7 +76,7 @@ function ClientsPanel({ onBack }) {
   const [fileName, setFileName] = useState('')
   const [parsed, setParsed] = useState({ headers: [], rows: [] })
   const [mapping, setMapping] = useState({})
-  const [officerId, setOfficerId] = useState(seat === 'team' ? 'michelle' : seat)
+  const [officerId, setOfficerId] = useState(seat === 'team' ? 'julene' : seat)
 
   const onFiles = async (files) => {
     const file = [...files].find((f) => /\.csv$/i.test(f.name)) || files[0]
@@ -396,7 +396,7 @@ function SocialPanel({ onBack }) {
    ============================================================ */
 function WebsitePanel({ onBack }) {
   const { seat, toast } = useApp()
-  const me = officerById(seat === 'team' ? 'michelle' : seat)
+  const me = officerById(seat === 'team' ? 'julene' : seat)
   const link = applyLinkFor(me)
   return (
     <div>

@@ -18,7 +18,7 @@ export default function Settings() {
 
   return (
     <div>
-      <PageHeader title="Settings" sub="Company profile, team, and workspace preferences." />
+      <PageHeader title="Settings" sub="Company profile and workspace preferences." />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card title="Company profile">
@@ -36,10 +36,10 @@ export default function Settings() {
               <MapPin className="h-4 w-4 shrink-0 text-slate-400" /> 742 Magnolia St, Ste D · Madison, MS 39110
             </li>
             <li className="flex items-center gap-2.5">
-              <Phone className="h-4 w-4 shrink-0 text-slate-400" /> (601) 651-3959
+              <Phone className="h-4 w-4 shrink-0 text-slate-400" /> (601) 862-0542
             </li>
             <li className="flex items-center gap-2.5">
-              <Mail className="h-4 w-4 shrink-0 text-slate-400" /> michelle@mslending.net
+              <Mail className="h-4 w-4 shrink-0 text-slate-400" /> julene@mslending.net
             </li>
             <li className="flex items-center gap-2.5">
               <BadgeCheck className="h-4 w-4 shrink-0 text-sage-500" /> NMLS #1833776 · Licensed in Mississippi
@@ -47,28 +47,18 @@ export default function Settings() {
           </ul>
         </Card>
 
-        <Card title="The team" sub="Michelle & Julene are real; Lauren, Dana & Katie are sample teammates for this demo.">
-          <ul className="space-y-1">
-            {OFFICERS.map((o) => (
-              <li key={o.id}>
-                <button
-                  onClick={() => go('profile', { id: o.id })}
-                  className="-mx-2 flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition-colors hover:bg-slate-50"
-                >
-                  <Avatar officer={o} size="h-10 w-10 text-xs" />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-navy-900">{o.name}</p>
-                    <p className="truncate text-xs text-slate-400">{o.role}</p>
-                  </div>
-                  <Badge
-                    cls={o.id === 'michelle' || o.id === 'julene' ? 'bg-navy-100 text-navy-700' : 'bg-slate-100 text-slate-500'}
-                  >
-                    {o.nmls}
-                  </Badge>
-                </button>
-              </li>
-            ))}
-          </ul>
+        <Card title="Loan officer" sub="Your workspace profile.">
+          <button
+            onClick={() => go('profile', { id: 'julene' })}
+            className="-mx-2 flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition-colors hover:bg-slate-50"
+          >
+            <Avatar officer={OFFICERS[0]} size="h-10 w-10 text-xs" />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold text-navy-900">{OFFICERS[0].name}</p>
+              <p className="truncate text-xs text-slate-400">{OFFICERS[0].role}</p>
+            </div>
+            <Badge cls="bg-navy-100 text-navy-700">{OFFICERS[0].nmls}</Badge>
+          </button>
         </Card>
 
         <Card title="Notifications" sub="What shows in your 🔔 and how the workspace keeps you on top of things.">
