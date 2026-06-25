@@ -31,6 +31,7 @@ import {
   MessageSquare,
   Mail,
   Upload,
+  Share2,
 } from 'lucide-react'
 import { AppProvider, useApp } from './store.jsx'
 import { OFFICERS, LOAN_TYPES, SOURCES, INTEGRATIONS, agentById, daysUntil, rateLockStatus, timeOfDay, SKY, DISCLAIMER } from './data.js'
@@ -52,6 +53,7 @@ import Profile from './pages/Profile.jsx'
 import Integrations, { INTEGRATION_ICONS } from './pages/Integrations.jsx'
 import Settings from './pages/Settings.jsx'
 import Import from './pages/Import.jsx'
+import Social from './pages/Social.jsx'
 import Landing from './pages/Landing.jsx'
 
 const MS_CITIES = ['Brandon', 'Flowood', 'Jackson', 'Madison', 'Pearl', 'Ridgeland', 'Clinton']
@@ -64,6 +66,7 @@ const NAV_MAIN = [
   { page: 'borrowers', label: 'Borrowers', icon: Users },
   { page: 'inbox', label: 'Inbox', icon: InboxIcon },
   { page: 'livemail', label: 'Live Mail', icon: Mail },
+  { page: 'social', label: 'Social', icon: Share2 },
   { page: 'tasks', label: 'Tasks', icon: ListChecks },
   { page: 'reports', label: 'Reports', icon: BarChart3 },
 ]
@@ -462,6 +465,7 @@ const PALETTE_PAGES = [
   ['borrowers', 'Borrowers'],
   ['inbox', 'Inbox'],
   ['livemail', 'Live Mail'],
+  ['social', 'Social'],
   ['tasks', 'Tasks'],
   ['reports', 'Reports'],
   ['apply', 'Inquire'],
@@ -906,6 +910,7 @@ function Shell() {
             {view.page === 'tasks' && <Tasks />}
             {view.page === 'inbox' && <Inbox />}
             {view.page === 'livemail' && <LiveMail />}
+            {view.page === 'social' && <Social />}
             {view.page === 'reports' && <Reports />}
             {view.page === 'calendar' && <Calendar />}
             {view.page === 'partners' && <Partners />}

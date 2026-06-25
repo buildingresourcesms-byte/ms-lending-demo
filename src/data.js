@@ -1432,3 +1432,28 @@ export const SEED_TEMPLATES = [
     body: 'Hi {first},\n\nHelping you get home was the best part of our week. If you have a minute, a quick review means the world to a small Mississippi team like ours — and if anyone you know is thinking about buying or refinancing, we’d love to help them too.\n\nWith gratitude,\nMS Lending',
   },
 ]
+
+/* ---- Social media (sample analytics shown until a platform is connected +
+   provider-approved, then real posts/metrics flow in via the connectors) ---- */
+export const SOCIAL_ACCOUNTS = [
+  { id: 'facebook', name: 'Facebook', handle: 'MS Lending, LLC', icon: 'megaphone', color: '#1877F2', followers: 2840, growth: 3.2 },
+  { id: 'instagram', name: 'Instagram', handle: '@mslending', icon: 'camera', color: '#E4405F', followers: 1910, growth: 5.8 },
+  { id: 'linkedin', name: 'LinkedIn', handle: 'Michelle Dugan', icon: 'briefcase', color: '#0A66C2', followers: 1240, growth: 1.4 },
+]
+
+export const SOCIAL_POSTS = [
+  { id: 'sp1', platform: 'instagram', date: d(-1), caption: 'Rates just dipped — here’s what it does to a $300k payment 📉', likes: 168, comments: 24, shares: 11, reach: 4120, tone: 'from-rose-400 to-orange-300' },
+  { id: 'sp2', platform: 'facebook', date: d(-3), caption: 'Congrats to the Hendersons on closing their first home! 🔑🏡', likes: 312, comments: 47, shares: 28, reach: 6800, tone: 'from-sky-400 to-indigo-300' },
+  { id: 'sp3', platform: 'instagram', date: d(-5), caption: 'First-time buyer? 3 things to fix on your credit before you apply 👇', likes: 204, comments: 31, shares: 19, reach: 5230, tone: 'from-violet-400 to-fuchsia-300' },
+  { id: 'sp4', platform: 'linkedin', date: d(-6), caption: 'What 28 years in Mississippi lending taught me about getting to the closing table.', likes: 96, comments: 14, shares: 7, reach: 2980, tone: 'from-navy-400 to-sky-300' },
+  { id: 'sp5', platform: 'facebook', date: d(-9), caption: 'Myth: you need 20% down. Reality: programs from 3% (and some 0%). Ask us.', likes: 141, comments: 22, shares: 33, reach: 5140, tone: 'from-sage-400 to-teal-300' },
+  { id: 'sp6', platform: 'instagram', date: d(-12), caption: 'Pre-approved in 24 hours — here’s exactly what to send us 📋', likes: 187, comments: 16, shares: 9, reach: 3870, tone: 'from-amber-400 to-rose-300' },
+]
+
+export const socialSummary = (posts = SOCIAL_POSTS, accounts = SOCIAL_ACCOUNTS) => {
+  const followers = accounts.reduce((n, a) => n + a.followers, 0)
+  const reach = posts.reduce((n, p) => n + (p.reach || 0), 0)
+  const engagements = posts.reduce((n, p) => n + (p.likes || 0) + (p.comments || 0) + (p.shares || 0), 0)
+  const engagementRate = reach ? Math.round((engagements / reach) * 1000) / 10 : 0
+  return { followers, reach, engagementRate, posts: posts.length }
+}

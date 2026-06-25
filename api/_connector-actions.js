@@ -63,6 +63,16 @@ async function meta(action, payload, tokens, provider) {
     requireFields(payload, ['pageId', 'pageAccessToken']) // page token required — call list_pages first
     return jsonRequest(`${graph}/${encodeURIComponent(payload.pageId)}/conversations?platform=instagram&fields=id,participants,updated_time&access_token=${encodeURIComponent(payload.pageAccessToken)}`)
   }
+  if (provider === 'facebook' && action === 'list_posts') {
+    requireFields(payload, ['pageId', 'pageAccessToken']) // call list_pages first for the page token
+    const fields = 'id,message,created_time,full_picture,permalink_url,shares,likes.summary(true),comments.summary(true)'
+    return jsonRequest(`${graph}/${encodeURIComponent(payload.pageId)}/posts?fields=${encodeURIComponent(fields)}&limit=${Math.min(Number(payload.limit) || 25, 100)}&access_token=${encodeURIComponent(payload.pageAccessToken)}`)
+  }
+  if (provider === 'instagram' && action === 'list_media') {
+    requireFields(payload, ['igUserId', 'pageAccessToken']) // igUserId from the page's connected_instagram_account
+    const fields = 'id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count'
+    return jsonRequest(`${graph}/${encodeURIComponent(payload.igUserId)}/media?fields=${encodeURIComponent(fields)}&limit=${Math.min(Number(payload.limit) || 25, 100)}&access_token=${encodeURIComponent(payload.pageAccessToken)}`)
+  }
   throw new Error(`Unsupported ${provider} action`)
 }
 
