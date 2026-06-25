@@ -4,6 +4,11 @@ import {
   SEED_TASKS,
   SEED_AGENT_INTROS,
   SEED_MESSAGES,
+  SEED_TEMPLATES,
+  SEED_PORTAL_CHAT,
+  SEED_VAULT,
+  DEFAULT_SHARE_PERMS,
+  LOAN_TYPES,
   STATUSES,
   NEXT_ACTION_LABEL,
   TASK_STATUSES,
@@ -112,6 +117,13 @@ export function AppProvider({ children }) {
   // Probed once from /api/health — absent on the static demo, so it stays null there.
   const [mailBackend, setMailBackend] = useState(null)
   const [connections, setConnections] = useState({})
+  /* job-board lane per borrower (defaults derived from status until dragged),
+     editable email templates, portal sharing, group chat, and the post-close vault */
+  const [boards, setBoards] = useState(SAVED?.boards ?? {})
+  const [templates, setTemplates] = useState(SAVED?.templates ?? SEED_TEMPLATES)
+  const [shares, setShares] = useState(SAVED?.shares ?? {})
+  const [portalChat, setPortalChat] = useState(SAVED?.portalChat ?? SEED_PORTAL_CHAT)
+  const [vault, setVault] = useState(SAVED?.vault ?? SEED_VAULT)
   const idSeq = useRef(maxSavedSeq(SAVED))
 
   const setNotifPref = useCallback((key, val) => setNotifPrefs((p) => ({ ...p, [key]: val })), [])
@@ -418,6 +430,137 @@ export function AppProvider({ children }) {
     [openLoan, toast],
   )
 
+  /* ---------- bulk import (CSV migration from another system) ----------
+     One toast, no per-row navigation. Rows already mapped to fields. */
+  const importBorrowers = useCallback(
+    (rows, { officerId } = {}) => {
+      const valid = (rows || []).filter((r) => (r.name || '').trim())
+      if (!valid.length) return 0
+      const owner = officerById(officerId)?.id || (seat === 'team' ? 'michelle' : seat)
+      const created = valid.map((form) => {
+        const id = 'b' + ++idSeq.current
+        const purpose = ['Purchase', 'Refinance', 'Cash-Out Refinance'].includes(form.purpose) ? form.purpose : 'Purchase'
+        const status = STATUSES.includes(form.status) ? form.status : 'New Lead'
+        const closed = status === 'Closed' || status === 'Lost'
+        return {
+          coBorrower: null, state: 'MS', term: 30, rate: 6.5, creditScore: null,
+          propertyValue: null, propertyAddress: `${(form.city || 'Madison').trim()}, MS`,
+          employer: '—', estClosing: null, lastContact: null, agentId: null,
+          id,
+          name: form.name.trim(),
+          phone: (form.phone || '').trim(),
+          email: (form.email || '').trim(),
+          loanType: LOAN_TYPES.includes(form.loanType) ? form.loanType : 'Conventional',
+          purpose,
+          amount: Number(String(form.amount ?? '').replace(/[^0-9.]/g, '')) || 0,
+          city: (form.city || 'Madison').trim(),
+          source: (form.source || '').trim() || 'Imported',
+          officerId: owner,
+          status,
+          createdAt: d(0), stageEnteredAt: d(0),
+          nextFollowUp: closed ? null : d(1),
+          docs: docsFor(purpose), notes: [],
+          timeline: [{ date: d(0), type: 'created', text: 'Imported from CSV' }],
+        }
+      })
+      setBorrowers((list) => [...created, ...list])
+      toast(`Imported ${created.length} client${created.length > 1 ? 's' : ''} 🎉`, '📥')
+      return created.length
+    },
+    [seat, toast],
+  )
+
+  /* ---------- job board: drag a file into a lane ---------- */
+  const setBorrowerBoard = useCallback((id, col) => {
+    setBoards((m) => (m[id] === col ? m : { ...m, [id]: col }))
+  }, [])
+
+  /* ---------- custom-named documents (some files need odd paperwork) ---------- */
+  const addDoc = useCallback(
+    (bid, name) => {
+      const clean = (name ?? '').trim()
+      if (!clean) return
+      patchBorrower(bid, (b) =>
+        b.docs.some((x) => x.name.toLowerCase() === clean.toLowerCase())
+          ? b
+          : logEvent({ ...b, docs: [...b.docs, { name: clean, status: 'Needed' }] }, 'doc', `Added “${clean}” to the document checklist`),
+      )
+      toast('Document added to the checklist', '📄')
+    },
+    [patchBorrower, toast],
+  )
+
+  /* ---------- email templates ---------- */
+  const addTemplate = useCallback(
+    (t) => {
+      const id = 'tpl-' + ++idSeq.current
+      setTemplates((list) => [{ id, name: t.name?.trim() || 'Untitled template', subject: t.subject ?? '', body: t.body ?? '' }, ...list])
+      toast('Template saved', '📝')
+      return id
+    },
+    [toast],
+  )
+  const updateTemplate = useCallback(
+    (id, patch) => {
+      setTemplates((list) => list.map((t) => (t.id === id ? { ...t, ...patch } : t)))
+      toast('Template updated', '✓')
+    },
+    [toast],
+  )
+  const deleteTemplate = useCallback(
+    (id) => {
+      setTemplates((list) => list.filter((t) => t.id !== id))
+      toast('Template removed', '🗑️')
+    },
+    [toast],
+  )
+
+  /* ---------- portal sharing: invite anyone, they pick who sees what ---------- */
+  const addShare = useCallback(
+    (bid, { email, name, relation }) => {
+      const id = 'sh-' + ++idSeq.current
+      const who = (name ?? '').trim() || (email ?? '').trim()
+      setShares((m) => ({
+        ...m,
+        [bid]: [...(m[bid] ?? []), { id, email: (email ?? '').trim(), name: who, relation: relation ?? 'Other', perms: { ...DEFAULT_SHARE_PERMS } }],
+      }))
+      toast(`Invitation emailed to ${who}`, '📨')
+      return id
+    },
+    [toast],
+  )
+  const updateSharePerms = useCallback((bid, shareId, perms) => {
+    setShares((m) => ({ ...m, [bid]: (m[bid] ?? []).map((s) => (s.id === shareId ? { ...s, perms } : s)) }))
+  }, [])
+  const removeShare = useCallback(
+    (bid, shareId) => {
+      setShares((m) => ({ ...m, [bid]: (m[bid] ?? []).filter((s) => s.id !== shareId) }))
+      toast('Access removed', '✓')
+    },
+    [toast],
+  )
+
+  /* ---------- portal group chat: everyone invited can post & read ---------- */
+  const postPortalMessage = useCallback((bid, { author, role, text }) => {
+    const clean = (text ?? '').trim()
+    if (!clean) return
+    setPortalChat((m) => ({ ...m, [bid]: [...(m[bid] ?? []), { id: 'pc-' + ++idSeq.current, author, role, text: clean, at: new Date().toISOString() }] }))
+  }, [])
+
+  /* ---------- post-close vault: a place to keep the will, insurance, deed… ---------- */
+  const addVaultDoc = useCallback(
+    (bid, name, addedBy = 'Borrower') => {
+      const clean = (name ?? '').trim()
+      if (!clean) return
+      setVault((m) => ({ ...m, [bid]: [...(m[bid] ?? []), { id: 'vt-' + ++idSeq.current, name: clean, status: 'Stored', addedBy }] }))
+      toast(`Saved to the vault — ${clean}`, '🔒')
+    },
+    [toast],
+  )
+  const removeVaultDoc = useCallback((bid, id) => {
+    setVault((m) => ({ ...m, [bid]: (m[bid] ?? []).filter((v) => v.id !== id) }))
+  }, [])
+
   /* ---------- tasks ---------- */
   const moveTask = useCallback((id, dir) => {
     setTasks((list) =>
@@ -600,12 +743,15 @@ export function AppProvider({ children }) {
     try {
       localStorage.setItem(
         PERSIST_KEY,
-        JSON.stringify({ v: PERSIST_VERSION, data: { borrowers, tasks, messages, agentIntros, agentLinks, notifPrefs, apHandled } }),
+        JSON.stringify({
+          v: PERSIST_VERSION,
+          data: { borrowers, tasks, messages, agentIntros, agentLinks, notifPrefs, apHandled, boards, templates, shares, portalChat, vault },
+        }),
       )
     } catch {
       /* storage unavailable (private mode) — stays in memory this session */
     }
-  }, [borrowers, tasks, messages, agentIntros, agentLinks, notifPrefs, apHandled])
+  }, [borrowers, tasks, messages, agentIntros, agentLinks, notifPrefs, apHandled, boards, templates, shares, portalChat, vault])
 
   const value = {
     view,
@@ -659,6 +805,23 @@ export function AppProvider({ children }) {
     toggleTheme,
     palette,
     setPalette,
+    boards,
+    setBorrowerBoard,
+    importBorrowers,
+    addDoc,
+    templates,
+    addTemplate,
+    updateTemplate,
+    deleteTemplate,
+    shares,
+    addShare,
+    updateSharePerms,
+    removeShare,
+    portalChat,
+    postPortalMessage,
+    vault,
+    addVaultDoc,
+    removeVaultDoc,
     nextActionLabel: (b) => NEXT_ACTION_LABEL[b.status],
   }
 

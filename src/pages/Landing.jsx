@@ -1,7 +1,7 @@
 import { ArrowRight, Users } from 'lucide-react'
 import { useApp } from '../store.jsx'
 import { OFFICERS, DISCLAIMER, timeOfDay, SKY } from '../data.js'
-import { BrandMark, Avatar, cx } from '../ui.jsx'
+import { BrandMark, Avatar, PoweredBySolvyr, cx } from '../ui.jsx'
 import { Reveal } from '../effects.jsx'
 
 function SignInRow({ o, onClick }) {
@@ -91,6 +91,7 @@ export default function Landing() {
 
         <Reveal delay={220}>
           <p className="mx-auto mt-5 max-w-xs text-center text-[10px] leading-relaxed text-navy-500">{DISCLAIMER}</p>
+          <PoweredBySolvyr tone="dark" className="mt-2" />
         </Reveal>
       </div>
     </div>

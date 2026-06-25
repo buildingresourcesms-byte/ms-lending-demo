@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Zap, Plus, Users, X, Mail, MessageSquare, Check, Plug, Download } from 'lucide-react'
+import { Zap, Plus, Users, X, Mail, MessageSquare, Check, Plug, Download, LayoutGrid, Rows3, ArrowLeftRight, AlarmClock } from 'lucide-react'
 import { useApp } from '../store.jsx'
 import { downloadCsv } from '../csv.js'
 import {
@@ -17,6 +17,11 @@ import {
   daysInStage,
   missingDocs,
   docProgress,
+  BOARD_COLUMNS,
+  UNACTIVE_COLUMN,
+  ALL_BOARD_COLUMNS,
+  boardColumnById,
+  defaultBoardFor,
 } from '../data.js'
 import {
   PageHeader,
@@ -150,10 +155,198 @@ function Checkbox({ checked, onClick, title }) {
   )
 }
 
+/* ============================================================
+   JOB BOARD — color-coded lanes in a grid that fits the screen
+   (no side-scroll). Move a card by dragging (desktop) OR the move
+   menu (works on touch — native drag doesn't fire on phones).
+   ============================================================ */
+function MoveMenu({ current, onMove }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="relative shrink-0">
+      <button
+        onClick={(e) => {
+          e.stopPropagation()
+          setOpen((o) => !o)
+        }}
+        title="Move to lane"
+        aria-label="Move to a lane"
+        className="rounded-md p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-navy-700 dark:hover:bg-white/10 dark:hover:text-white"
+      >
+        <ArrowLeftRight className="h-3.5 w-3.5" />
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-20" onClick={(e) => { e.stopPropagation(); setOpen(false) }} />
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="absolute right-0 z-30 mt-1 w-44 overflow-hidden rounded-xl border border-slate-200 bg-white p-1 shadow-[0_16px_44px_-8px_rgba(16,24,40,0.25)] dark:border-white/10 dark:bg-navy-900"
+          >
+            <p className="px-2 pb-1 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Move to</p>
+            {ALL_BOARD_COLUMNS.map((col) => (
+              <button
+                key={col.id}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  if (col.id !== current) onMove(col.id)
+                  setOpen(false)
+                }}
+                className={cx(
+                  'flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[13px] transition-colors hover:bg-slate-50 dark:hover:bg-white/5',
+                  current === col.id && 'bg-slate-50 dark:bg-white/5',
+                )}
+              >
+                <span className={cx('h-2 w-2 shrink-0 rounded-full', col.dot)} />
+                <span className="flex-1 text-slate-700 dark:text-slate-200">{col.label}</span>
+                {current === col.id && <Check className="h-3.5 w-3.5 shrink-0 text-sage-600" />}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+function BoardCard({ b, lane }) {
+  const { openLoan, setBorrowerBoard, toast } = useApp()
+  const overdue = isOverdue(b)
+  const dp = docProgress(b)
+  const missing = missingDocs(b).length
+  const move = (col) => {
+    setBorrowerBoard(b.id, col)
+    toast(`Moved to ${boardColumnById(col).label}`, '✓')
+  }
+  return (
+    <div
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.setData('text/plain', b.id)
+        e.dataTransfer.effectAllowed = 'move'
+      }}
+      onClick={() => openLoan(b.id)}
+      title="Open the file · drag or use the move button to re-file"
+      style={{ borderLeftColor: lane.tint }}
+      className={cx(
+        'group cursor-pointer rounded-xl border border-l-[3px] bg-white p-3 shadow-[0_1px_2px_rgba(16,24,40,0.05)] transition-shadow hover:shadow-[0_4px_14px_-6px_rgba(16,24,40,0.18)] sm:cursor-grab sm:active:cursor-grabbing dark:bg-navy-900',
+        overdue ? 'border-rose-200 dark:border-rose-500/30' : 'border-slate-200/80 dark:border-white/10',
+        isClosedOut(b) && 'opacity-75',
+      )}
+    >
+      <div className="flex items-start justify-between gap-1.5">
+        <p className="min-w-0 text-[13px] font-semibold leading-snug text-navy-950 dark:text-white">
+          {b.name}
+          {b.coBorrower && <span className="font-normal text-slate-400"> & {b.coBorrower.split(' ')[0]}</span>}
+        </p>
+        <MoveMenu current={lane.id} onMove={move} />
+      </div>
+      <p className="mt-0.5 text-[11px] text-slate-400">
+        {money(b.amount)} · {b.loanType} · {b.city}
+      </p>
+      <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+        <StatusBadge status={b.status} />
+        {overdue && (
+          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-rose-600">
+            <AlarmClock className="h-3 w-3" /> {-daysUntil(b.nextFollowUp)}d
+          </span>
+        )}
+        {isStuck(b) && !overdue && <span className="text-[11px] text-violet-600">{daysInStage(b)}d in stage</span>}
+      </div>
+      <div className="mt-2.5 flex items-center gap-2">
+        <ProgressBar pct={dp.pct} className="h-1 flex-1" />
+        <span className="text-[10px] tabular-nums text-slate-400">{dp.done}/{dp.total}</span>
+        <Avatar officer={officerById(b.officerId)} size="h-5 w-5 text-[8px]" />
+      </div>
+      {missing > 0 && !isClosedOut(b) && (
+        <p className="mt-1.5 text-[10px] font-medium text-amber-600">{missing} doc{missing > 1 ? 's' : ''} outstanding</p>
+      )}
+    </div>
+  )
+}
+
+function Lane({ col, items }) {
+  const { setBorrowerBoard, toast } = useApp()
+  const [over, setOver] = useState(false)
+  const unactive = col.id === 'unactive'
+  return (
+    <div
+      onDragOver={(e) => {
+        e.preventDefault()
+        e.dataTransfer.dropEffect = 'move'
+        setOver(true)
+      }}
+      onDragLeave={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget)) setOver(false)
+      }}
+      onDrop={(e) => {
+        e.preventDefault()
+        const id = e.dataTransfer.getData('text/plain')
+        if (id) {
+          setBorrowerBoard(id, col.id)
+          toast(`Moved to ${col.label}`, '✓')
+        }
+        setOver(false)
+      }}
+      className={cx(
+        'flex min-w-0 flex-col rounded-2xl border p-2.5 transition-colors',
+        over
+          ? 'border-navy-400/70 bg-navy-50/70 dark:border-white/30 dark:bg-white/[0.07]'
+          : unactive
+            ? 'border-dashed border-slate-300/70 bg-slate-100/60 dark:border-white/10 dark:bg-white/[0.02]'
+            : 'border-slate-200/60 bg-slate-50/80 dark:border-white/10 dark:bg-white/[0.03]',
+      )}
+    >
+      <div className="mb-1 flex items-center gap-2 px-1">
+        <span className={cx('h-2 w-2 shrink-0 rounded-full', col.dot)} />
+        <h3 className="truncate text-[13px] font-semibold text-navy-950 dark:text-white">{col.label}</h3>
+        <span className="ml-auto rounded-full bg-white px-1.5 text-[11px] font-medium tabular-nums text-slate-500 ring-1 ring-slate-200 dark:bg-white/10 dark:text-slate-300 dark:ring-white/10">
+          {items.length}
+        </span>
+      </div>
+      <p className="mb-2.5 truncate px-1 text-[10px] text-slate-400">{col.blurb}</p>
+      <div className="flex-1 space-y-2">
+        {items.length === 0 ? (
+          <p className="rounded-lg border border-dashed border-slate-200 px-2 py-5 text-center text-[11px] text-slate-400 dark:border-white/10">
+            Empty
+          </p>
+        ) : (
+          items.map((b) => <BoardCard key={b.id} b={b} lane={col} />)
+        )}
+      </div>
+    </div>
+  )
+}
+
+function BoardView({ filtered, boards }) {
+  const byLane = useMemo(() => {
+    const map = Object.fromEntries(ALL_BOARD_COLUMNS.map((c) => [c.id, []]))
+    filtered.forEach((b) => {
+      const lane = boards[b.id] ?? defaultBoardFor(b)
+      ;(map[lane] ?? map.misc).push(b)
+    })
+    return map
+  }, [filtered, boards])
+
+  return (
+    <div>
+      <p className="mb-2 text-[11px] text-slate-400">
+        Drag a card between lanes, or tap <ArrowLeftRight className="inline h-3 w-3 align-[-1px]" /> on any card to move it.
+      </p>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {BOARD_COLUMNS.map((col) => (
+          <Lane key={col.id} col={col} items={byLane[col.id]} />
+        ))}
+        <Lane col={UNACTIVE_COLUMN} items={byLane.unactive} />
+      </div>
+    </div>
+  )
+}
+
 export default function Borrowers({ onNewLead }) {
-  const { borrowers, crm, setCrm, openLoan, advanceStatus, nextActionLabel, seat, currentOfficer, connections } = useApp()
+  const { borrowers, crm, setCrm, openLoan, advanceStatus, nextActionLabel, seat, currentOfficer, connections, boards } = useApp()
   const [selected, setSelected] = useState(() => new Set())
   const [bulk, setBulk] = useState(null) // 'email' | 'text' channel for bulk modal
+  const [view, setView] = useState('board') // 'board' | 'list'
 
   const scoped = seat === 'team' ? borrowers : borrowers.filter((b) => b.officerId === seat)
 
@@ -180,7 +373,7 @@ export default function Borrowers({ onNewLead }) {
         if (rank(a) !== rank(z)) return rank(a) - rank(z)
         return (a.nextFollowUp ?? '9999') < (z.nextFollowUp ?? '9999') ? -1 : 1
       })
-  }, [borrowers, crm, seat])
+  }, [scoped, crm])
 
   const hasFilters =
     crm.q || crm.status !== 'All' || crm.officer !== 'All' || crm.loanType !== 'All' || crm.overdue || crm.missing || crm.stuck || crm.apply
@@ -207,13 +400,30 @@ export default function Borrowers({ onNewLead }) {
   const clearSelection = () => setSelected(new Set())
 
   const exportCsv = () => {
-    const headers = ['Name', 'Co-borrower', 'Phone', 'Email', 'Status', 'Loan type', 'Purpose', 'Amount', 'City', 'Officer', 'Source', 'Next follow-up', 'From apply']
+    const headers = ['Name', 'Co-borrower', 'Phone', 'Email', 'Status', 'Loan type', 'Purpose', 'Amount', 'City', 'Officer', 'Source', 'Next follow-up', 'From inquiry']
     const rows = filtered.map((b) => [
       b.name, b.coBorrower || '', b.phone, b.email, b.status, b.loanType, b.purpose,
       b.amount, b.city, officerById(b.officerId).name, b.source, b.nextFollowUp || '', b.viaApply ? 'Yes' : 'No',
     ])
     downloadCsv('ms-lending-borrowers.csv', headers, rows)
   }
+
+  const ViewToggle = () => (
+    <div className="inline-flex rounded-lg border border-slate-300/70 p-0.5 dark:border-white/15">
+      {[['board', 'Board', LayoutGrid], ['list', 'List', Rows3]].map(([key, label, Icon]) => (
+        <button
+          key={key}
+          onClick={() => setView(key)}
+          className={cx(
+            'inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors',
+            view === key ? 'bg-navy-900 text-white dark:bg-white/15' : 'text-slate-500 hover:text-navy-900 dark:hover:text-white',
+          )}
+        >
+          <Icon className="h-3.5 w-3.5" /> {label}
+        </button>
+      ))}
+    </div>
+  )
 
   return (
     <div>
@@ -222,10 +432,11 @@ export default function Borrowers({ onNewLead }) {
         sub={
           currentOfficer
             ? `${currentOfficer.name}’s leads, applications, and active loan files.`
-            : 'Every lead, application, and active loan file — searchable in seconds.'
+            : 'Every lead, application, and active loan file — drag a card to set where it stands.'
         }
         actions={
           <div className="flex items-center gap-2">
+            <ViewToggle />
             <Btn variant="outline" onClick={exportCsv} title="Download the current list as a CSV">
               <Download className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Export</span>
             </Btn>
@@ -268,7 +479,7 @@ export default function Borrowers({ onNewLead }) {
             Stuck 10+ days
           </FilterChip>
           <FilterChip active={crm.apply} onClick={() => setCrm({ apply: !crm.apply })}>
-            From apply link
+            From inquiry link
           </FilterChip>
           <span className="ml-auto flex items-center gap-2 text-xs text-slate-400 tabular-nums">
             {filtered.length} of {scoped.length} files
@@ -310,6 +521,8 @@ export default function Borrowers({ onNewLead }) {
         <div className="rounded-xl border border-slate-200/80 bg-white">
           <EmptyState icon={Users} title="No matching borrowers" sub="Try clearing a filter or two." />
         </div>
+      ) : view === 'board' ? (
+        <BoardView filtered={filtered} boards={boards} />
       ) : (
         <>
           {/* ---------- desktop table ---------- */}
@@ -360,7 +573,7 @@ export default function Borrowers({ onNewLead }) {
                           {b.coBorrower && <span className="font-normal text-slate-400"> & {b.coBorrower.split(' ')[0]}</span>}
                           {b.viaApply && (
                             <span className="ml-1.5 inline-flex items-center rounded bg-sage-50 px-1.5 py-px align-middle text-[10px] font-semibold text-sage-700 ring-1 ring-inset ring-sage-600/20">
-                              Apply
+                              Inquiry
                             </span>
                           )}
                         </p>
@@ -458,7 +671,7 @@ export default function Borrowers({ onNewLead }) {
                           {b.coBorrower && <span className="font-normal text-slate-400"> & {b.coBorrower.split(' ')[0]}</span>}
                           {b.viaApply && (
                             <span className="ml-1.5 inline-flex items-center rounded bg-sage-50 px-1.5 py-px align-middle text-[10px] font-semibold text-sage-700 ring-1 ring-inset ring-sage-600/20">
-                              Apply
+                              Inquiry
                             </span>
                           )}
                         </p>

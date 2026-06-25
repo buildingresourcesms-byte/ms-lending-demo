@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
-import { Search, ChevronDown, X, ArrowRight, UploadCloud } from 'lucide-react'
-import { STATUS_STYLES, DOC_STYLES, PRIORITY_STYLES } from './data.js'
+import { Search, ChevronDown, X, ArrowRight, UploadCloud, Scale } from 'lucide-react'
+import { STATUS_STYLES, DOC_STYLES, PRIORITY_STYLES, SOLVYR, LEGAL_LINES, COMPANY } from './data.js'
 import { CountUpText, useSpotlight } from './effects.jsx'
 
 export const cx = (...a) => a.filter(Boolean).join(' ')
@@ -317,7 +317,7 @@ export function Field({ label, children, className }) {
 }
 
 /* ---------- drag & drop upload (demo: reacts to the drop, ignores bytes) ---------- */
-export function DropZone({ onFiles, label = 'Drag & drop files here', hint = 'or click to browse', className }) {
+export function DropZone({ onFiles, label = 'Drag & drop files here', hint = 'or click to browse', className, accept }) {
   const [over, setOver] = useState(false)
   const inputRef = useRef(null)
   const handle = (files) => {
@@ -347,7 +347,7 @@ export function DropZone({ onFiles, label = 'Drag & drop files here', hint = 'or
         className,
       )}
     >
-      <input ref={inputRef} type="file" multiple className="hidden" onChange={(e) => handle(e.target.files)} />
+      <input ref={inputRef} type="file" multiple accept={accept} className="hidden" onChange={(e) => handle(e.target.files)} />
       <UploadCloud className={cx('mx-auto mb-1.5 h-6 w-6', over ? 'text-navy-500' : 'text-slate-400')} strokeWidth={1.75} />
       <p className="text-[13px] font-medium text-slate-600 dark:text-slate-200">{label}</p>
       <p className="text-xs text-slate-400">{hint}</p>
@@ -387,5 +387,48 @@ export function KV({ k, v, className }) {
       <dt className="text-xs text-slate-400">{k}</dt>
       <dd className="mt-0.5 text-[13px] font-medium text-slate-800 tabular-nums">{v ?? '—'}</dd>
     </div>
+  )
+}
+
+/* ---------- Powered by SOLVYR — fine print on every screen ---------- */
+export function PoweredBySolvyr({ className, tone = 'light' }) {
+  return (
+    <p className={cx('text-center text-[10px] leading-relaxed', tone === 'dark' ? 'text-white/45' : 'text-slate-400', className)}>
+      Powered by{' '}
+      <a
+        href={SOLVYR.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={cx('font-semibold tracking-wide underline-offset-2 hover:underline', tone === 'dark' ? 'text-white/70' : 'text-slate-500')}
+      >
+        {SOLVYR.name}
+      </a>{' '}
+      — {SOLVYR.program}
+    </p>
+  )
+}
+
+/* ---------- Legal disclaimer — the lending fine print customers must see ---------- */
+export function LegalDisclaimer({ className, compact = false }) {
+  return (
+    <section
+      className={cx(
+        'rounded-2xl border border-slate-200/80 bg-slate-50/70 p-4 dark:border-white/10 dark:bg-white/[0.03]',
+        className,
+      )}
+      aria-label="Legal disclosures"
+    >
+      <div className="flex items-center gap-2">
+        <Scale className="h-3.5 w-3.5 shrink-0 text-slate-400" strokeWidth={2} />
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+          {COMPANY.name} · {COMPANY.nmls} · Equal Housing Lender
+        </p>
+      </div>
+      <div className="mt-2 space-y-1.5">
+        {(compact ? LEGAL_LINES.slice(0, 2) : LEGAL_LINES).map((line, i) => (
+          <p key={i} className="text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">{line}</p>
+        ))}
+      </div>
+    </section>
   )
 }

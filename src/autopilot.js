@@ -66,15 +66,45 @@ function draftFor(kind, b, officer) {
         channel: 'sms',
         body: `Hi ${first}, ${off} with MS Lending — checking in to make sure nothing’s stuck on your loan. ${step ? step.charAt(0).toUpperCase() + step.slice(1) + '.' : ''} Reach out anytime!`,
       }
+    case 'rate-lock':
+      return {
+        channel: 'sms',
+        body: `Hi ${first}, ${off} at MS Lending — your rate lock is coming up. Let’s make sure we close in time so you keep your ${b.rate}% rate. Anything you need from me to keep things moving?`,
+      }
+    case 'post-close-checkin':
+      return {
+        channel: 'email',
+        subject: 'Welcome home — and a place to keep your documents',
+        body: `Hi ${first},\n\nCongratulations again from all of us at MS Lending! One thing worth knowing: your borrower portal stays open after closing. You can keep your closing documents, homeowners insurance, even your will and estate paperwork in your secure vault — and share any of it with family or your attorney whenever you need.\n\nWe’re always one call away,\n${officer?.name ?? 'MS Lending'}\nMS Lending`,
+      }
+    case 'refi-watch':
+      return {
+        channel: 'email',
+        subject: 'Worth a quick look at your rate?',
+        body: `Hi ${first},\n\nYou closed your loan at ${b.rate}%, and rates have been moving. A refinance might lower your monthly payment — it only takes me a few minutes to run the numbers, with no obligation at all.\n\nWant me to take a look for you?\n\n${officer?.name ?? 'MS Lending'}\nMS Lending`,
+      }
+    case 'review-request':
+      return {
+        channel: 'email',
+        subject: 'It was a joy working with you',
+        body: `Hi ${first},\n\nHelping you get home was the best part of our month. If you have a minute, a quick review means the world to a small Mississippi team like ours — and if anyone you know is thinking about buying or refinancing, we’d love to take great care of them too.\n\nWith gratitude,\n${officer?.name ?? 'MS Lending'}\nMS Lending`,
+      }
+    case 'nurture-checkin':
+      return {
+        channel: 'sms',
+        body: `Hi ${first}, ${off} at MS Lending just thinking of you. No rush at all — whenever the timing feels right to look at buying again, I’m here and happy to pick up right where we left off.`,
+      }
     default:
       return { channel: 'sms', body: `Hi ${first}, checking in on your loan — ${off} at MS Lending.` }
   }
 }
 
-/* one prioritized rule per loan (first match wins) */
+/* one prioritized rule per loan (first match wins). Every rule only ever
+   *drafts* — nothing is sent until a human reviews it on the Autopilot page. */
 const RULES = [
   { kind: 'referral-callback', priority: 1, label: 'Call back referral', match: (b) => b.viaReferral && b.status === 'New Lead', why: (b) => `Referral${b.agentId && agentById(b.agentId) ? ` from ${agentById(b.agentId).name.split(' ')[0]}` : ''} — speed wins these` },
   { kind: 'overdue-followup', priority: 1, label: 'Overdue follow-up', match: (b) => isOverdue(b), why: (b) => `Follow-up ${-daysUntil(b.nextFollowUp)}d overdue` },
+  { kind: 'rate-lock', priority: 1, label: 'Protect the rate lock', match: (b) => b.rateLockExpires && daysUntil(b.rateLockExpires) >= 0 && daysUntil(b.rateLockExpires) <= 7, why: (b) => `Rate lock expires in ${daysUntil(b.rateLockExpires)}d` },
   { kind: 'closing-soon', priority: 2, label: 'Confirm closing', match: (b) => b.estClosing && daysUntil(b.estClosing) >= 0 && daysUntil(b.estClosing) <= 7, why: (b) => `Closes ${fmtDateFull(b.estClosing)}` },
   { kind: 'doc-request', priority: 2, label: 'Request documents', match: (b) => b.status === 'Documents Needed' && missingDocs(b).length > 0, why: (b) => `${missingDocs(b).length} document${missingDocs(b).length > 1 ? 's' : ''} outstanding` },
   { kind: 'new-lead-intro', priority: 2, label: 'Intro a new lead', match: (b) => b.status === 'New Lead', why: () => 'New lead — make first contact' },
@@ -82,11 +112,20 @@ const RULES = [
   { kind: 'stuck', priority: 3, label: 'Unstick a file', match: (b) => isStuck(b), why: (b) => `${daysInStage(b)} days in ${b.status}` },
 ]
 
+/* automations that keep working after the loan is done — the portal stays
+   alive, so these nurture the relationship (still review-then-send). */
+const CLOSED_RULES = [
+  { kind: 'post-close-checkin', priority: 2, label: 'Post-close check-in', match: (b) => b.status === 'Closed' && b.estClosing && daysUntil(b.estClosing) >= -21, why: () => 'Just closed — welcome them & open the vault' },
+  { kind: 'nurture-checkin', priority: 3, label: 'Nurture a paused file', match: (b) => b.status === 'Lost', why: () => 'Paused — keep the door open for later' },
+  { kind: 'refi-watch', priority: 3, label: 'Refi opportunity', match: (b) => b.status === 'Closed' && b.rate >= 6.4, why: (b) => `Closed at ${b.rate}% — worth a refi look` },
+  { kind: 'review-request', priority: 3, label: 'Ask for a review', match: (b) => b.status === 'Closed', why: () => 'Happy client — ask for a review & referral' },
+]
+
 export function buildSuggestions(borrowers, seat, handled = {}) {
-  const mine = (seat === 'team' ? borrowers : borrowers.filter((b) => b.officerId === seat)).filter((b) => !isClosedOut(b))
+  const mine = seat === 'team' ? borrowers : borrowers.filter((b) => b.officerId === seat)
   const out = []
   for (const b of mine) {
-    const rule = RULES.find((r) => r.match(b))
+    const rule = (isClosedOut(b) ? CLOSED_RULES : RULES).find((r) => r.match(b))
     if (!rule) continue
     const key = `${b.id}:${rule.kind}`
     // skip anything acted on / snoozed whose suppression window hasn't passed

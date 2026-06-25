@@ -30,11 +30,12 @@ import {
   LogOut,
   MessageSquare,
   Mail,
+  Upload,
 } from 'lucide-react'
 import { AppProvider, useApp } from './store.jsx'
 import { OFFICERS, LOAN_TYPES, SOURCES, INTEGRATIONS, agentById, daysUntil, rateLockStatus, timeOfDay, SKY, DISCLAIMER } from './data.js'
 import { buildSuggestions } from './autopilot.js'
-import { BrandMark, Btn, Modal, Field, Select, SearchInput, inputCls, cx } from './ui.jsx'
+import { BrandMark, Btn, Modal, Field, Select, SearchInput, PoweredBySolvyr, inputCls, cx } from './ui.jsx'
 import Dashboard from './pages/Dashboard.jsx'
 import Autopilot from './pages/Autopilot.jsx'
 import Borrowers from './pages/Borrowers.jsx'
@@ -50,6 +51,7 @@ import Partners from './pages/Partners.jsx'
 import Profile from './pages/Profile.jsx'
 import Integrations, { INTEGRATION_ICONS } from './pages/Integrations.jsx'
 import Settings from './pages/Settings.jsx'
+import Import from './pages/Import.jsx'
 import Landing from './pages/Landing.jsx'
 
 const MS_CITIES = ['Brandon', 'Flowood', 'Jackson', 'Madison', 'Pearl', 'Ridgeland', 'Clinton']
@@ -67,9 +69,12 @@ const NAV_MAIN = [
 ]
 const NAV_CLIENT = [
   { page: 'portal', label: 'Borrower Portal', icon: HeartHandshake },
-  { page: 'apply', label: 'Apply Intake', icon: ClipboardList },
+  { page: 'apply', label: 'Inquire', icon: ClipboardList },
 ]
-const NAV_SYSTEM = [{ page: 'settings', label: 'Settings', icon: SettingsIcon }]
+const NAV_SYSTEM = [
+  { page: 'import', label: 'Import & migrate', icon: Upload },
+  { page: 'settings', label: 'Settings', icon: SettingsIcon },
+]
 
 /* ---------------- new lead modal ---------------- */
 function NewLeadModal({ open, onClose }) {
@@ -459,9 +464,10 @@ const PALETTE_PAGES = [
   ['livemail', 'Live Mail'],
   ['tasks', 'Tasks'],
   ['reports', 'Reports'],
-  ['apply', 'Apply Intake'],
+  ['apply', 'Inquire'],
   ['portal', 'Borrower Portal'],
   ['integrations', 'Integrations'],
+  ['import', 'Import & migrate'],
   ['profile', 'My Profile'],
   ['settings', 'Settings'],
 ]
@@ -907,13 +913,15 @@ function Shell() {
             {view.page === 'portal' && <Portal key={view.id ?? 'default'} initialId={view.id} />}
             {view.page === 'apply' && <Apply />}
             {view.page === 'integrations' && <Integrations />}
+            {view.page === 'import' && <Import />}
             {view.page === 'settings' && <Settings />}
           </div>
         </main>
-        <footer className="mx-auto max-w-6xl px-4 pb-8 sm:px-6">
+        <footer className="mx-auto max-w-6xl space-y-1.5 px-4 pb-8 sm:px-6">
           <p className="border-t border-slate-200/70 pt-4 text-center text-[11px] text-slate-400 dark:border-white/10">
             A concept loan workspace for MS Lending, LLC — {DISCLAIMER}
           </p>
+          <PoweredBySolvyr />
         </footer>
       </div>
       <MobileNav onMenu={() => setMenuOpen(true)} />

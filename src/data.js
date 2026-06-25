@@ -1277,3 +1277,158 @@ export const INTEGRATIONS = [
     defaultAccount: 'marketing@mslending.net',
   },
 ]
+
+/* ============================================================
+   JOB BOARD — the borrower kanban. These lanes are the loan
+   officer's own buckets, independent of pipeline status. A file
+   keeps its lane until you drag it somewhere else.
+   ============================================================ */
+export const BOARD_COLUMNS = [
+  { id: 'active',     label: 'Active',      tint: '#357047', soft: 'bg-sage-50 text-sage-700 ring-sage-600/20',     dot: 'bg-sage-500',   blurb: 'Moving toward closing' },
+  { id: 'prequalify', label: 'Prequalify',  tint: '#0284c7', soft: 'bg-sky-50 text-sky-700 ring-sky-600/20',        dot: 'bg-sky-500',    blurb: 'Getting them qualified' },
+  { id: 'pending',    label: 'Pending',     tint: '#b45309', soft: 'bg-amber-50 text-amber-800 ring-amber-600/25',  dot: 'bg-amber-500',  blurb: 'Waiting on something' },
+  { id: 'credit',     label: 'Credit Help', tint: '#be123c', soft: 'bg-rose-50 text-rose-700 ring-rose-600/20',     dot: 'bg-rose-500',   blurb: 'Needs credit work first' },
+  { id: 'limbo',      label: 'Limbo',       tint: '#7c3aed', soft: 'bg-violet-50 text-violet-700 ring-violet-600/20', dot: 'bg-violet-500', blurb: 'Stalled — unclear next step' },
+  { id: 'misc',       label: 'Misc',        tint: '#475569', soft: 'bg-slate-100 text-slate-600 ring-slate-400/30', dot: 'bg-slate-400',  blurb: 'Everything else' },
+]
+
+/* the parked lane, shown on its own to the side */
+export const UNACTIVE_COLUMN = {
+  id: 'unactive', label: 'Unactive', tint: '#94a3b8',
+  soft: 'bg-slate-100 text-slate-500 ring-slate-400/30', dot: 'bg-slate-400', blurb: 'Closed, lost, or on ice',
+}
+
+export const ALL_BOARD_COLUMNS = [...BOARD_COLUMNS, UNACTIVE_COLUMN]
+export const boardColumnById = (id) => ALL_BOARD_COLUMNS.find((c) => c.id === id) ?? BOARD_COLUMNS[5]
+
+/* where a file lands before anyone drags it — derived from pipeline status */
+export const defaultBoardFor = (b) => {
+  if (isClosedOut(b)) return 'unactive'
+  if (b.status === 'New Lead' || b.status === 'Contacted' || b.status === 'Application Started') return 'prequalify'
+  if (b.status === 'Documents Needed') return 'pending'
+  return 'active'
+}
+
+/* ============================================================
+   COMPANY + LEGAL — MS Lending is a mortgage lender; say so loudly,
+   and put the real lending disclaimers anywhere a customer can see.
+   ============================================================ */
+export const COMPANY = {
+  name: 'MS Lending, LLC',
+  kind: 'Mortgage Lender',
+  tagline: 'Mortgage lending for Mississippi families',
+  city: 'Madison, MS',
+  nmls: 'NMLS #102016',
+  phone: '(601) 651-3959',
+  site: 'mslending.net',
+}
+
+export const LEGAL_LINES = [
+  `${COMPANY.name} is a licensed mortgage lender · ${COMPANY.nmls} · Equal Housing Lender.`,
+  'This is not a commitment to lend or an offer to extend credit. All loans are subject to credit approval, income and asset verification, and property appraisal. Rates, terms, and program availability may change without notice.',
+  'Figures shown are illustrations only and are not financial, tax, or legal advice. Contact MS Lending for terms specific to your situation.',
+]
+
+/* SOLVYR — fine-print attribution on every screen */
+export const SOLVYR = {
+  name: 'SOLVYR',
+  url: 'https://www.solvyrsolutions.com',
+  program: 'a RIOS program',
+}
+
+/* ============================================================
+   PORTAL SHARING — the borrower can invite anyone and pick, per
+   person, exactly which parts of the portal they're allowed to see.
+   ============================================================ */
+export const SHARE_ITEMS = [
+  { id: 'progress',  label: 'Loan progress & stage' },
+  { id: 'documents', label: 'Documents we still need' },
+  { id: 'vault',     label: 'Document vault (will, insurance…)' },
+  { id: 'facts',     label: 'Loan amount & details' },
+  { id: 'chat',      label: 'Group chat' },
+  { id: 'officer',   label: 'Loan officer contact' },
+]
+/* a new invitee starts with the safe, low-sensitivity items on */
+export const DEFAULT_SHARE_PERMS = { progress: true, documents: false, vault: false, facts: false, chat: true, officer: true }
+export const SHARE_RELATIONS = ['Spouse / Partner', 'Family', 'Real estate agent', 'Attorney', 'Financial advisor', 'Accountant', 'Other']
+
+/* things people keep in a post-closing vault — suggested, plus add your own */
+export const VAULT_SUGGESTIONS = [
+  'Last Will & Testament',
+  'Homeowners Insurance Policy',
+  'Property Deed',
+  'Closing Disclosure',
+  'Estate / Trust Documents',
+  'Property Tax Records',
+  'Home Warranty',
+]
+
+/* a tiny bit of seed so the group chat and vault aren't empty on first look */
+export const SEED_PORTAL_CHAT = {
+  b3: [
+    { id: 'pc1', author: 'Michelle Dugan', role: 'Loan Officer', text: 'Hi Renee! Dropping the whole team in here so everyone can follow along. The updated VOE is the last condition — almost there.', at: at(-6, '10:05') },
+    { id: 'pc2', author: 'Renee Walker', role: 'Borrower', text: 'Thank you! My HR said they sent it over this morning.', at: at(-6, '13:20') },
+  ],
+}
+
+export const SEED_VAULT = {
+  b13: [
+    { id: 'v1', name: 'Closing Disclosure', status: 'Stored', addedBy: 'MS Lending' },
+    { id: 'v2', name: 'Property Deed', status: 'Stored', addedBy: 'MS Lending' },
+  ],
+}
+
+/* ============================================================
+   EMAIL TEMPLATES — starting library the team can edit or add to.
+   {first} drops in the borrower's first name when used.
+   ============================================================ */
+export const SEED_TEMPLATES = [
+  {
+    id: 'tpl-welcome',
+    name: 'Welcome / first contact',
+    subject: 'Welcome to MS Lending, {first}',
+    body: 'Hi {first},\n\nThanks for reaching out to MS Lending — I’m glad you did. I’ll be your point of contact from here to closing, and my job is to make this simple.\n\nWhen’s a good time for a quick 10-minute call to talk through your goals and get you pre-qualified?\n\nTalk soon,\nMS Lending',
+  },
+  {
+    id: 'tpl-docs',
+    name: 'Document request',
+    subject: 'A few documents to keep your loan moving',
+    body: 'Hi {first},\n\nWe’re ready for the next step and just need a few items from you. A clear phone photo of each works great — no scanner needed.\n\nYou can upload them anytime from your borrower portal and we’ll take it from there.\n\nThank you,\nMS Lending',
+  },
+  {
+    id: 'tpl-preapproval',
+    name: 'Pre-approval letter',
+    subject: 'You’re pre-approved with MS Lending 🎉',
+    body: 'Hi {first},\n\nGreat news — you’re pre-approved! Your letter is attached, so you can make offers with confidence.\n\nThe moment you find a home you love, send it my way and we’ll move fast.\n\nCongratulations,\nMS Lending',
+  },
+  {
+    id: 'tpl-status',
+    name: 'Status check-in',
+    subject: 'Quick update on your loan',
+    body: 'Hi {first},\n\nJust a quick note so you’re never left wondering — here’s where your loan stands today. Nothing is needed from you right now; we’ll reach out the moment that changes.\n\nAlways here if you have questions,\nMS Lending',
+  },
+  {
+    id: 'tpl-closing',
+    name: 'Closing confirmation',
+    subject: 'Your closing details',
+    body: 'Hi {first},\n\nWe’re almost there! Here are your closing details. Please bring a government-issued photo ID, and reach out if anything has changed on your end.\n\nAlmost home,\nMS Lending',
+  },
+  {
+    id: 'tpl-postclose',
+    name: 'Post-closing check-in',
+    subject: 'Checking in — and a place to keep your documents',
+    body: 'Hi {first},\n\nCongratulations again on your home! A quick reminder: your MS Lending portal stays open. You can keep your closing documents, insurance, and other important paperwork in your secure vault — and share it with family or your attorney whenever you need.\n\nWe’re always one call away,\nMS Lending',
+  },
+  {
+    id: 'tpl-rate',
+    name: 'Rate-drop opportunity',
+    subject: 'Rates moved — worth a quick look?',
+    body: 'Hi {first},\n\nRates have come down since we closed your loan, and a refinance might lower your payment. It only takes a few minutes to run the numbers — no obligation.\n\nWant me to take a look for you?\n\nMS Lending',
+  },
+  {
+    id: 'tpl-review',
+    name: 'Review / referral request',
+    subject: 'It was a joy working with you',
+    body: 'Hi {first},\n\nHelping you get home was the best part of our week. If you have a minute, a quick review means the world to a small Mississippi team like ours — and if anyone you know is thinking about buying or refinancing, we’d love to help them too.\n\nWith gratitude,\nMS Lending',
+  },
+]

@@ -12,7 +12,7 @@ import {
 } from 'lucide-react'
 import { useApp } from '../store.jsx'
 import { LOAN_TYPES, SOURCES, APPLY_URL, APPLY_STEPS, applyLinkFor, officerById } from '../data.js'
-import { BrandMark, Btn, Field, Select, Avatar, inputCls, cx } from '../ui.jsx'
+import { BrandMark, Btn, Field, Select, Avatar, LegalDisclaimer, PoweredBySolvyr, inputCls, cx } from '../ui.jsx'
 
 const CITIES = ['Brandon', 'Flowood', 'Jackson', 'Madison', 'Pearl', 'Ridgeland', 'Clinton', 'Other']
 const PURPOSES = ['Purchase', 'Refinance', 'Cash-Out Refinance']
@@ -32,9 +32,9 @@ const BLANK = {
 /* the value story: how the apply button routes through the workspace */
 function FlowStrip() {
   const nodes = [
-    { label: 'Apply Now', sub: 'on the website' },
-    { label: 'Your workspace', sub: 'captures the lead', hot: true },
-    { label: 'Secure application', sub: 'finish the 1003' },
+    { label: 'Inquire', sub: 'on the website' },
+    { label: 'Your workspace', sub: 'captures the inquiry', hot: true },
+    { label: 'Apply', sub: 'finish the 1003' },
   ]
   return (
     <div className="flex items-center justify-center gap-2 text-center">
@@ -102,8 +102,8 @@ export default function Apply() {
         <p className="flex items-center gap-2 text-sm text-navy-100">
           <Eye className="h-4 w-4 shrink-0 text-sage-300" />
           <span>
-            <span className="font-semibold text-white">Apply-button preview</span> — what your website’s “Apply
-            Now” opens when routed through the workspace.
+            <span className="font-semibold text-white">Inquiry preview</span> — what your website’s “Inquire”
+            button opens when routed through the workspace.
           </span>
         </p>
         <span className="flex items-center gap-1.5 rounded-lg bg-white/10 px-2.5 py-1 font-mono text-[11px] text-navy-100">
@@ -116,7 +116,7 @@ export default function Apply() {
         <div className="flex flex-col items-center pt-2 text-center">
           <BrandMark className="h-12 w-12" />
           <p className="font-display mt-2.5 text-lg font-semibold text-navy-900">MS Lending</p>
-          <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-navy-500">Apply Online</p>
+          <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-navy-500">Inquire Online</p>
         </div>
 
         {done ? (
@@ -130,7 +130,7 @@ export default function Apply() {
                 You’re all set, {done.name}!
               </h1>
               <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-slate-600">
-                Your details are saved and your loan officer has been notified. The last step is the secure
+                Your details are saved and your loan officer has been notified. The last step is the full
                 application, where you’ll finish the details.
               </p>
               <a
@@ -139,7 +139,7 @@ export default function Apply() {
                 rel="noopener noreferrer"
                 className="mt-5 inline-flex items-center justify-center gap-2 rounded-xl bg-sage-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-sage-700"
               >
-                <Lock className="h-4 w-4" /> Continue to secure application
+                <Lock className="h-4 w-4" /> Continue to your application
               </a>
               <p className="mt-3 flex items-center justify-center gap-1.5 text-[11px] text-slate-400">
                 <ShieldCheck className="h-3.5 w-3.5 text-sage-500" />
@@ -268,7 +268,7 @@ export default function Apply() {
         {/* what to expect */}
         {!done && (
           <div className="rounded-3xl bg-sage-50 p-6 ring-1 ring-sage-100">
-            <h2 className="text-sm font-semibold text-sage-900">What happens after you apply</h2>
+            <h2 className="text-sm font-semibold text-sage-900">What happens after you inquire</h2>
             <ol className="mt-3 space-y-2">
               {APPLY_STEPS.map((s, i) => (
                 <li key={i} className="flex items-start gap-2.5 text-sm text-sage-800">
@@ -281,6 +281,10 @@ export default function Apply() {
             </ol>
           </div>
         )}
+
+        {/* legal — customers must see this */}
+        <LegalDisclaimer />
+        <PoweredBySolvyr className="pb-4 pt-1" />
       </div>
     </div>
   )

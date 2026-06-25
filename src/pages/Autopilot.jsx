@@ -14,6 +14,12 @@ import {
   Clock,
   CheckCircle2,
   ArrowRight,
+  Lock,
+  Home,
+  Percent,
+  Star,
+  Heart,
+  ShieldCheck,
 } from 'lucide-react'
 import { useApp } from '../store.jsx'
 import { d } from '../data.js'
@@ -23,20 +29,30 @@ import { PageHeader, Card, Btn, StatusBadge, EmptyState, Field, inputCls, cx } f
 const KIND_ICON = {
   'referral-callback': Building2,
   'overdue-followup': AlarmClock,
+  'rate-lock': Lock,
   'closing-soon': KeyRound,
   'doc-request': FileText,
   'new-lead-intro': UserPlus,
   'send-preapproval': Award,
   stuck: Hourglass,
+  'post-close-checkin': Home,
+  'refi-watch': Percent,
+  'review-request': Star,
+  'nurture-checkin': Heart,
 }
 const KIND_TONE = {
   'referral-callback': 'bg-rose-50 text-rose-600 dark:bg-rose-500/15',
   'overdue-followup': 'bg-rose-50 text-rose-600 dark:bg-rose-500/15',
+  'rate-lock': 'bg-amber-50 text-amber-600 dark:bg-amber-500/15',
   'closing-soon': 'bg-sage-50 text-sage-700 dark:bg-sage-500/15',
   'doc-request': 'bg-amber-50 text-amber-600 dark:bg-amber-500/15',
   'new-lead-intro': 'bg-sky-50 text-sky-600 dark:bg-sky-500/15',
   'send-preapproval': 'bg-sage-50 text-sage-700 dark:bg-sage-500/15',
   stuck: 'bg-violet-50 text-violet-600 dark:bg-violet-500/15',
+  'post-close-checkin': 'bg-sage-50 text-sage-700 dark:bg-sage-500/15',
+  'refi-watch': 'bg-teal-50 text-teal-600 dark:bg-teal-500/15',
+  'review-request': 'bg-amber-50 text-amber-600 dark:bg-amber-500/15',
+  'nurture-checkin': 'bg-sky-50 text-sky-600 dark:bg-sky-500/15',
 }
 
 const textareaCls =
@@ -139,10 +155,17 @@ export default function Autopilot() {
         title="Autopilot"
         sub={
           currentOfficer
-            ? `${currentOfficer.name.split(' ')[0]}, here’s everything that needs you — already drafted. Review and send.`
-            : 'Everything that needs attention — already drafted. Review and send.'
+            ? `${currentOfficer.name.split(' ')[0]}, here’s everything that needs you — already drafted. Nothing sends until you approve it.`
+            : 'Everything that needs attention — already drafted. Nothing sends until you approve it.'
         }
       />
+
+      <div className="mb-4 flex items-start gap-2.5 rounded-xl border border-sage-200/70 bg-sage-50/70 px-4 py-2.5 dark:border-white/10 dark:bg-sage-500/10">
+        <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-sage-600" />
+        <p className="text-[13px] leading-relaxed text-sage-900 dark:text-sage-200">
+          <span className="font-semibold">Approval required.</span> Autopilot drafts the next best action for every file — new leads, rate locks, closings, even post-close refis and reviews — but never sends, texts, or schedules anything on its own. You read it, edit it, and press send.
+        </p>
+      </div>
 
       {suggestions.length === 0 ? (
         <div className="rounded-2xl border border-sage-200/70 bg-gradient-to-br from-sage-50 to-white p-10 text-center dark:border-white/10 dark:from-sage-500/10 dark:to-navy-900">

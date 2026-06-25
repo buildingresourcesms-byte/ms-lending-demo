@@ -782,7 +782,8 @@ function LoanTab({ b }) {
 
 /* ================= Documents ================= */
 function DocsTab({ b, missing, dp, requestDocs, setDocStatus }) {
-  const { toast } = useApp()
+  const { toast, addDoc } = useApp()
+  const [custom, setCustom] = useState('')
   const requestable = b.docs.filter((x) => x.status === 'Needed' || x.status === 'Rejected').length
   const onFiles = (files) => {
     const outstanding = b.docs.filter((x) => x.status === 'Needed' || x.status === 'Requested' || x.status === 'Rejected')
@@ -834,8 +835,27 @@ function DocsTab({ b, missing, dp, requestDocs, setDocStatus }) {
           </li>
         ))}
       </ul>
-      <p className="mt-4 border-t border-slate-100 pt-3 text-xs text-slate-400">
-        In the full product, borrowers upload these securely from their phone — and the checklist updates itself.
+      <form
+        onSubmit={(e) => {
+          e.preventDefault()
+          if (!custom.trim()) return
+          addDoc(b.id, custom)
+          setCustom('')
+        }}
+        className="mt-4 flex flex-wrap gap-2 border-t border-slate-100 pt-4 dark:border-white/10"
+      >
+        <input
+          className={cx(inputCls, 'min-w-44 flex-1')}
+          placeholder="Need something unusual? Add a custom document…"
+          value={custom}
+          onChange={(e) => setCustom(e.target.value)}
+        />
+        <Btn type="submit" variant="outline" disabled={!custom.trim()}>
+          <Plus className="h-3.5 w-3.5" /> Add to checklist
+        </Btn>
+      </form>
+      <p className="mt-3 text-xs text-slate-400">
+        Gift letter, divorce decree, trust paperwork — whatever this file needs. Borrowers upload securely from their phone, and the checklist updates itself.
       </p>
     </Card>
   )
