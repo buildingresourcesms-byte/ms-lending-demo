@@ -211,6 +211,89 @@ async function mailchimp(action, payload, tokens) {
   throw new Error('Unsupported Mailchimp action')
 }
 
+async function calendly(action, payload, tokens) {
+  if (action === 'get_user') {
+    return jsonRequest('https://api.calendly.com/users/me', { headers: bearer(tokens.access_token) })
+  }
+  if (action === 'list_events') {
+    let userUri = payload.userUri
+    if (!userUri) {
+      const me = await jsonRequest('https://api.calendly.com/users/me', { headers: bearer(tokens.access_token) })
+      userUri = me?.resource?.uri
+    }
+    const params = new URLSearchParams({ user: userUri, count: String(Math.min(Number(payload.count) || 20, 100)) })
+    if (payload.status) params.set('status', payload.status)
+    if (payload.minStartTime) params.set('min_start_time', payload.minStartTime)
+    return jsonRequest(`https://api.calendly.com/scheduled_events?${params}`, { headers: bearer(tokens.access_token) })
+  }
+  throw new Error('Unsupported Calendly action')
+}
+
+async function canva(action, payload, tokens) {
+  if (action === 'list_designs') {
+    const params = new URLSearchParams()
+    if (payload.query) params.set('query', payload.query)
+    if (payload.ownership) params.set('ownership', payload.ownership)
+    if (payload.continuation) params.set('continuation', payload.continuation)
+    const qs = params.toString()
+    return jsonRequest(`https://api.canva.com/rest/v1/designs${qs ? `?${qs}` : ''}`, { headers: bearer(tokens.access_token) })
+  }
+  throw new Error('Unsupported Canva action')
+}
+
+async function tiktok(action, payload, tokens) {
+  if (action === 'get_user') {
+    const fields = 'open_id,union_id,avatar_url,display_name'
+    return jsonRequest(`https://open.tiktokapis.com/v2/user/info/?fields=${encodeURIComponent(fields)}`, {
+      method: 'POST',
+      headers: bearer(tokens.access_token, { 'Content-Type': 'application/json' }),
+    })
+  }
+  if (action === 'list_videos') {
+    const fields = 'id,title,cover_image_url,view_count,like_count,comment_count,share_count,create_time'
+    const body = { max_count: Math.min(Number(payload.maxCount) || 20, 20) }
+    if (payload.cursor) body.cursor = Number(payload.cursor)
+    return jsonRequest(`https://open.tiktokapis.com/v2/video/list/?fields=${encodeURIComponent(fields)}`, {
+      method: 'POST',
+      headers: bearer(tokens.access_token, { 'Content-Type': 'application/json' }),
+      body: JSON.stringify(body),
+    })
+  }
+  throw new Error('Unsupported TikTok action')
+}
+
+const redditUA = () => process.env.REDDIT_USER_AGENT || 'web:ms-lending-demo:1.0 (by /u/ms-lending)'
+
+async function reddit(action, payload, tokens) {
+  const headers = bearer(tokens.access_token, { 'User-Agent': redditUA() })
+  if (action === 'get_identity') {
+    return jsonRequest('https://oauth.reddit.com/api/v1/me', { headers })
+  }
+  if (action === 'list_history') {
+    const me = payload.username || (await jsonRequest('https://oauth.reddit.com/api/v1/me', { headers }))?.name
+    const where = payload.where || 'submitted'
+    const params = new URLSearchParams({ limit: String(Math.min(Number(payload.limit) || 25, 100)) })
+    return jsonRequest(`https://oauth.reddit.com/user/${encodeURIComponent(me)}/${where}?${params}`, { headers })
+  }
+  throw new Error('Unsupported Reddit action')
+}
+
+async function yelp(action, payload) {
+  const key = process.env.YELP_API_KEY
+  if (!key) throw new Error('Yelp is not configured (YELP_API_KEY)')
+  const headers = bearer(key)
+  if (action === 'search_businesses') {
+    requireFields(payload, ['term', 'location'])
+    const params = new URLSearchParams({ term: payload.term, location: payload.location, limit: String(Math.min(Number(payload.limit) || 5, 50)) })
+    return jsonRequest(`https://api.yelp.com/v3/businesses/search?${params}`, { headers })
+  }
+  if (action === 'get_reviews') {
+    requireFields(payload, ['id'])
+    return jsonRequest(`https://api.yelp.com/v3/businesses/${encodeURIComponent(payload.id)}/reviews`, { headers })
+  }
+  throw new Error('Unsupported Yelp action')
+}
+
 export async function runConnectorAction(req, res, provider, action, payload = {}) {
   const definition = connector(provider)
   if (!definition) throw new Error('Unknown connector')
@@ -227,6 +310,7 @@ export async function runConnectorAction(req, res, provider, action, payload = {
     })
   }
   if (provider === 'zillow') throw new Error('Zillow is inbound-only; send leads to the connector webhook')
+  if (provider === 'yelp') return yelp(action, payload) // api key, no OAuth tokens
   if (definition.native) throw new Error(`${definition.name} uses its dedicated API routes`)
 
   const tokens = await connectorAccessToken(req, res, provider)
@@ -238,5 +322,9 @@ export async function runConnectorAction(req, res, provider, action, payload = {
   if (provider === 'dropbox') return dropbox(action, payload, tokens)
   if (provider === 'quickbooks') return quickbooks(action, payload, tokens)
   if (provider === 'mailchimp') return mailchimp(action, payload, tokens)
+  if (provider === 'calendly') return calendly(action, payload, tokens)
+  if (provider === 'canva') return canva(action, payload, tokens)
+  if (provider === 'tiktok') return tiktok(action, payload, tokens)
+  if (provider === 'reddit') return reddit(action, payload, tokens)
   throw new Error(`No action adapter is registered for ${definition.name}`)
 }

@@ -71,6 +71,19 @@ export function clearOAuthState(res, provider) {
   appendCookie(res, cookie(stateCookieName(provider), '', { maxAge: 0 }))
 }
 
+/* PKCE: store the one-time code_verifier next to the state (same 10-min TTL).
+   Used only by connectors with definition.pkce (Canva, TikTok). */
+const pkceCookieName = (provider) => `msl_${safeProvider(provider)}_pkce`
+export function setPkceVerifier(res, provider, verifier) {
+  appendCookie(res, cookie(pkceCookieName(provider), verifier, { maxAge: 60 * 10 }))
+}
+export function getPkceVerifier(req, provider) {
+  return cookies(req)[pkceCookieName(provider)] || null
+}
+export function clearPkceVerifier(res, provider) {
+  appendCookie(res, cookie(pkceCookieName(provider), '', { maxAge: 0 }))
+}
+
 export function browserRefreshToken(req, provider) {
   return cookies(req)[tokenCookieName(provider)] || null
 }

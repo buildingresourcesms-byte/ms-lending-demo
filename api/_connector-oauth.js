@@ -1,4 +1,5 @@
-import { beginOAuth, browserOAuthTokens, setOAuthTokens } from './_oauth.js'
+import { createHash, randomBytes } from 'node:crypto'
+import { beginOAuth, browserOAuthTokens, setOAuthTokens, setPkceVerifier } from './_oauth.js'
 import { connector } from './_connector-registry.js'
 
 const prefix = (provider) => `CONNECTOR_${String(provider).toUpperCase().replace(/[^A-Z0-9]/g, '_')}`
@@ -24,7 +25,7 @@ function tokenRequest(definition, params) {
   const body = new URLSearchParams(params)
   if (definition.tokenAuth === 'basic') headers.Authorization = `Basic ${basic(clientId, clientSecret)}`
   else {
-    body.set('client_id', clientId)
+    body.set(definition.clientParam || 'client_id', clientId) // TikTok uses client_key
     body.set('client_secret', clientSecret)
   }
   return { headers, body }
@@ -36,24 +37,33 @@ export function connectorAuthorizationUrl(res, provider) {
   const { clientId } = credentials(definition)
   const state = beginOAuth(res, provider)
   const params = new URLSearchParams({
-    client_id: clientId,
     redirect_uri: redirectUri(definition),
     response_type: 'code',
     state,
     ...(definition.authorizeParams || {}),
   })
+  params.set(definition.clientParam || 'client_id', clientId) // TikTok uses client_key
   if (definition.scope) params.set('scope', definition.scope)
+  if (definition.pkce) {
+    // PKCE S256 (Canva, TikTok): keep the verifier server-side, send only the challenge
+    const verifier = randomBytes(32).toString('base64url')
+    setPkceVerifier(res, provider, verifier)
+    params.set('code_challenge', createHash('sha256').update(verifier).digest('base64url'))
+    params.set('code_challenge_method', 'S256')
+  }
   return `${definition.authorizeUrl}?${params}`
 }
 
-export async function exchangeConnectorCode(provider, code, callbackQuery = {}) {
+export async function exchangeConnectorCode(provider, code, callbackQuery = {}, codeVerifier = null) {
   const definition = connector(provider)
   if (!definition || definition.authType !== 'oauth2' || definition.native) throw new Error('OAuth connector not found')
-  const request = tokenRequest(definition, {
+  const tokenParams = {
     grant_type: 'authorization_code',
     code,
     redirect_uri: redirectUri(definition),
-  })
+  }
+  if (definition.pkce && codeVerifier) tokenParams.code_verifier = codeVerifier
+  const request = tokenRequest(definition, tokenParams)
   const response = await fetch(definition.tokenUrl, { method: 'POST', ...request })
   const text = await response.text()
   let tokens
