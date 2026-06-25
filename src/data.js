@@ -1393,3 +1393,30 @@ export const socialSummary = (posts = SOCIAL_POSTS, accounts = SOCIAL_ACCOUNTS) 
   const engagementRate = reach ? Math.round((engagements / reach) * 1000) / 10 : 0
   return { followers, reach, engagementRate, posts: posts.length }
 }
+
+/* ---- Google Business Profile (reviews / rating) ----
+   Sample data until the GBP connector is authorized; then it's replaced by
+   live reviews from the Google Business Profile API. */
+export const GBP_PROFILE = {
+  name: 'MS Lending — Julene Stewart',
+  rating: 4.9,
+  reviewCount: 63,
+  views30d: 1840,
+  calls30d: 27,
+  direction30d: 19,
+}
+
+export const GBP_REVIEWS = [
+  { id: 'gr1', author: 'Monica H.', rating: 5, date: d(-3), text: 'Julene made our first home purchase painless — explained every step and got us a great rate. Cannot recommend enough!', reply: 'Thank you Monica! So happy for you and the family. 🏡' },
+  { id: 'gr2', author: 'David & Sarah P.', rating: 5, date: d(-8), text: 'Refinanced with Julene and saved almost $300/month. Fast, honest, and always answered our calls.', reply: '' },
+  { id: 'gr3', author: 'Tom L.', rating: 5, date: d(-14), text: 'Self-employed and thought I’d never qualify. Julene found a program that worked. Closed on time.', reply: 'Appreciate you, Tom — congrats again!' },
+  { id: 'gr4', author: 'Anthony B.', rating: 4, date: d(-21), text: 'Great experience overall. A little back-and-forth on documents but Julene kept it moving.', reply: '' },
+  { id: 'gr5', author: 'Carla S.', rating: 5, date: d(-29), text: 'Professional, patient, and genuinely cared. She treats you like family, not a transaction.', reply: '' },
+]
+
+export const gbpSummary = (reviews = GBP_REVIEWS, profile = GBP_PROFILE) => {
+  const count = reviews.length || profile.reviewCount
+  const avg = reviews.length ? Math.round((reviews.reduce((n, r) => n + r.rating, 0) / reviews.length) * 10) / 10 : profile.rating
+  const replied = reviews.filter((r) => r.reply && r.reply.trim()).length
+  return { rating: avg, reviewCount: profile.reviewCount, replied, needsReply: reviews.length - replied }
+}

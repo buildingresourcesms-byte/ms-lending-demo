@@ -32,6 +32,7 @@ import {
   Mail,
   Upload,
   Share2,
+  Star,
 } from 'lucide-react'
 import { AppProvider, useApp } from './store.jsx'
 import { OFFICERS, LOAN_TYPES, SOURCES, INTEGRATIONS, agentById, daysUntil, rateLockStatus, timeOfDay, SKY, DISCLAIMER } from './data.js'
@@ -54,6 +55,7 @@ import Integrations, { INTEGRATION_ICONS } from './pages/Integrations.jsx'
 import Settings from './pages/Settings.jsx'
 import Import from './pages/Import.jsx'
 import Social from './pages/Social.jsx'
+import GoogleBusiness from './pages/GoogleBusiness.jsx'
 import Landing from './pages/Landing.jsx'
 
 const MS_CITIES = ['Brandon', 'Flowood', 'Jackson', 'Madison', 'Pearl', 'Ridgeland', 'Clinton']
@@ -67,6 +69,7 @@ const NAV_MAIN = [
   { page: 'inbox', label: 'Inbox', icon: InboxIcon },
   { page: 'livemail', label: 'Live Mail', icon: Mail },
   { page: 'social', label: 'Social', icon: Share2 },
+  { page: 'gbp', label: 'Google Business', icon: Star },
   { page: 'tasks', label: 'Tasks', icon: ListChecks },
   { page: 'reports', label: 'Reports', icon: BarChart3 },
 ]
@@ -427,6 +430,7 @@ const PALETTE_PAGES = [
   ['inbox', 'Inbox'],
   ['livemail', 'Live Mail'],
   ['social', 'Social'],
+  ['gbp', 'Google Business'],
   ['tasks', 'Tasks'],
   ['reports', 'Reports'],
   ['apply', 'Inquire'],
@@ -872,6 +876,7 @@ function Shell() {
             {view.page === 'inbox' && <Inbox />}
             {view.page === 'livemail' && <LiveMail />}
             {view.page === 'social' && <Social />}
+            {view.page === 'gbp' && <GoogleBusiness />}
             {view.page === 'reports' && <Reports />}
             {view.page === 'calendar' && <Calendar />}
             {view.page === 'partners' && <Partners />}
