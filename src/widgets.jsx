@@ -16,6 +16,12 @@ import {
   UserPlus,
   FileWarning,
   Landmark,
+  FileText,
+  Upload,
+  LayoutGrid,
+  MessageSquare,
+  Inbox as InboxIcon,
+  Image as ImageIcon,
 } from 'lucide-react'
 import { useApp } from './store.jsx'
 import {
@@ -33,6 +39,9 @@ import {
   money,
   AGENTS,
   agentDeals,
+  BOARD_COLUMNS,
+  UNACTIVE_COLUMN,
+  defaultBoardFor,
   d,
 } from './data.js'
 import { Stat, StatusBadge, ProgressBar, Avatar, EmptyState, cx } from './ui.jsx'
@@ -403,6 +412,132 @@ function LeadsTrendWidget() {
   )
 }
 
+/* 🗂️ Job board — files per lane */
+function BoardWidget() {
+  const { borrowers, boards, seat, go } = useApp()
+  const mine = scopeBorrowers(borrowers, seat)
+  const counts = {}
+  mine.forEach((b) => {
+    const lane = boards[b.id] ?? defaultBoardFor(b)
+    counts[lane] = (counts[lane] ?? 0) + 1
+  })
+  const lanes = [...BOARD_COLUMNS, UNACTIVE_COLUMN]
+  return (
+    <WidgetCard icon={LayoutGrid} title="Job board" sub="Your files by lane" onOpen={() => go('borrowers')} openLabel="Open board">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {lanes.map((col) => (
+          <button
+            key={col.id}
+            onClick={() => go('borrowers')}
+            className="flex flex-col items-start rounded-lg border border-slate-200/80 p-2.5 text-left transition-colors hover:border-navy-300/70 hover:bg-slate-50/60 dark:border-white/10 dark:hover:bg-white/5"
+          >
+            <span className="flex items-center gap-1.5">
+              <span className={cx('h-2 w-2 shrink-0 rounded-full', col.dot)} />
+              <span className="truncate text-[11px] font-medium text-slate-500 dark:text-slate-400">{col.label}</span>
+            </span>
+            <span className="mt-1 text-xl font-semibold text-navy-950 tabular-nums dark:text-white">{counts[col.id] ?? 0}</span>
+          </button>
+        ))}
+      </div>
+    </WidgetCard>
+  )
+}
+
+/* 📨 Inbox — recent borrower messages */
+function InboxWidget() {
+  const { borrowers, messages, seat, go } = useApp()
+  const mine = scopeBorrowers(borrowers, seat)
+  const totalUnread = mine.reduce((n, b) => n + (messages[b.id] ?? []).filter((m) => m.dir === 'in' && !m.read).length, 0)
+  const threads = mine
+    .map((b) => {
+      const thread = messages[b.id] ?? []
+      return { b, unread: thread.filter((m) => m.dir === 'in' && !m.read).length, last: thread[thread.length - 1] }
+    })
+    .filter((x) => x.last)
+    .sort((a, z) => z.unread - a.unread || ((z.last?.at ?? '') < (a.last?.at ?? '') ? -1 : 1))
+    .slice(0, 5)
+  return (
+    <WidgetCard icon={InboxIcon} title="Inbox" sub={totalUnread ? `${totalUnread} unread` : 'All caught up'} onOpen={() => go('inbox')} openLabel="Open">
+      {threads.length === 0 ? (
+        <EmptyState icon={MessageSquare} title="No messages yet" sub="Borrower replies will show up here." />
+      ) : (
+        <div className="space-y-1.5">
+          {threads.map(({ b, unread, last }) => (
+            <button
+              key={b.id}
+              onClick={() => go('inbox')}
+              className="flex w-full items-center gap-2.5 rounded-lg border border-slate-200/80 p-2 text-left transition-colors hover:border-navy-300/70 hover:bg-slate-50/60 dark:border-white/10 dark:hover:bg-white/5"
+            >
+              <span className="min-w-0 flex-1">
+                <span className="flex items-center gap-1.5">
+                  <span className="truncate text-[13px] font-medium text-navy-950 dark:text-white">{b.name}</span>
+                  {unread > 0 && <span className="grid h-4 min-w-4 shrink-0 place-items-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white tabular-nums">{unread}</span>}
+                </span>
+                <span className="block truncate text-[11px] text-slate-400">{last.dir === 'out' ? 'You: ' : ''}{last.body}</span>
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+    </WidgetCard>
+  )
+}
+
+/* 📝 Templates — quick access to the email library */
+function TemplatesWidget() {
+  const { templates, go } = useApp()
+  return (
+    <WidgetCard icon={FileText} title="Templates" sub={`${templates.length} ready to send`} onOpen={() => go('templates')} openLabel="Open">
+      {templates.length === 0 ? (
+        <EmptyState icon={FileText} title="No templates yet" sub="Create one to reuse your best emails." />
+      ) : (
+        <div className="space-y-1.5">
+          {templates.slice(0, 5).map((t) => (
+            <button
+              key={t.id}
+              onClick={() => go('templates')}
+              className="flex w-full items-center gap-2.5 rounded-lg border border-slate-200/80 p-2 text-left transition-colors hover:border-navy-300/70 hover:bg-slate-50/60 dark:border-white/10 dark:hover:bg-white/5"
+            >
+              <FileText className="h-4 w-4 shrink-0 text-navy-500 dark:text-slate-300" strokeWidth={1.75} />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[13px] font-medium text-navy-950 dark:text-white">{t.name}</span>
+                {t.subject && <span className="block truncate text-[11px] text-slate-400">{t.subject}</span>}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+    </WidgetCard>
+  )
+}
+
+/* 📥 Import & migrate — quick start */
+function ImportWidget() {
+  const { borrowers, go } = useApp()
+  const actions = [
+    { label: 'Import clients from a CSV', icon: Upload },
+    { label: 'Add photos to your library', icon: ImageIcon },
+    { label: 'Add documents', icon: FileText },
+  ]
+  return (
+    <WidgetCard icon={Upload} title="Import & migrate" sub={`${borrowers.length} clients in your workspace`} onOpen={() => go('import')} openLabel="Open">
+      <div className="space-y-2">
+        {actions.map((a) => (
+          <button
+            key={a.label}
+            onClick={() => go('import')}
+            className="flex w-full items-center gap-2.5 rounded-lg border border-slate-200/80 p-2.5 text-left transition-colors hover:border-navy-300/70 hover:bg-slate-50/60 dark:border-white/10 dark:hover:bg-white/5"
+          >
+            <a.icon className="h-4 w-4 shrink-0 text-navy-500 dark:text-slate-300" strokeWidth={1.75} />
+            <span className="flex-1 text-[13px] font-medium text-navy-950 dark:text-white">{a.label}</span>
+            <ArrowRight className="h-3.5 w-3.5 shrink-0 text-slate-300" />
+          </button>
+        ))}
+      </div>
+    </WidgetCard>
+  )
+}
+
 /* ---------- registry ---------- */
 export const WIDGETS = [
   { id: 'agenda', name: 'Today’s calendar', icon: CalendarDays, size: 'half', Component: AgendaWidget },
@@ -416,6 +551,10 @@ export const WIDGETS = [
   { id: 'kpis', name: 'Pipeline snapshot (KPIs)', icon: TrendingUp, size: 'full', Component: KpisWidget },
   { id: 'leadSources', name: 'Lead sources', icon: PieChart, size: 'half', Component: LeadSourcesWidget },
   { id: 'leadsTrend', name: 'New leads trend', icon: TrendingUp, size: 'half', Component: LeadsTrendWidget },
+  { id: 'board', name: 'Job board', icon: LayoutGrid, size: 'half', Component: BoardWidget },
+  { id: 'inbox', name: 'Inbox', icon: InboxIcon, size: 'half', Component: InboxWidget },
+  { id: 'templates', name: 'Templates', icon: FileText, size: 'half', Component: TemplatesWidget },
+  { id: 'import', name: 'Import & migrate', icon: Upload, size: 'half', Component: ImportWidget },
 ]
 
 export const WIDGET_BY_ID = Object.fromEntries(WIDGETS.map((w) => [w.id, w]))
